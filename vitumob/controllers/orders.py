@@ -4,10 +4,9 @@ import json
 from flask import Blueprint, Response, request
 from ..models.order import Order
 from ..models.item import Item
-# from google.cloud import datastore
+
 
 orders = Blueprint('orders', __name__)
-# entity = datastore.Client()
 
 @orders.route('/orders/new', methods=['POST'])
 def new_order_from_user():
