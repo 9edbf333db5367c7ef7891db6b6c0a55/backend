@@ -10,6 +10,7 @@ TESTS-bf4a577b8390.json
 *.pyc
 ./.Python
 ./tags
+.vscode
 
 ### Bower ###
 bower_components

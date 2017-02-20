@@ -1,7 +1,7 @@
 from google.appengine.ext import ndb
 from .item import Item
 
-class Order(ndb.Expando):
+class Order(ndb.Model):
     name = ndb.StringProperty()
     host = ndb.StringProperty()
     items = ndb.StructuredProperty(Item, repeated=True)

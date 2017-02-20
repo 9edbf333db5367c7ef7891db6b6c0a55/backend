@@ -1,7 +1,7 @@
 from google.appengine.ext import ndb
 
 class Item(ndb.Expando):
-    sku = ndb.StringProperty()
+    id = ndb.StringProperty()
     name = ndb.StringProperty()
     image = ndb.StringProperty()
     link = ndb.StringProperty()
