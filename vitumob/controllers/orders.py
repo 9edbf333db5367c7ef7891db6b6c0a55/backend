@@ -19,8 +19,8 @@ def new_order_from_user():
 
     items = [Item(**item) for item in new_order['items']]
     order = Order(name=new_order['name'], host=new_order['host'], items=items)
-    order_id = order.put()
+    order_key = order.put()
 
-    results = Order.query(Order.key == order_id).get()
+    results = Order.query(Order.key == order_key).get()
     payload = json.dumps({'results': ndb_json.dumps(results)})
     return Response(payload, status=200, mimetype='application/json')
