@@ -12,7 +12,7 @@ from ..utils import ndb_json
 orders = Blueprint('orders', __name__)
 
 
-@orders.route('/orders/new', methods=['POST'])
+@orders.route('/order/new', methods=['POST'])
 def new_order_from_user():
     """Receives new orders and stores them"""
     new_order = json.loads(request.json['order'])
