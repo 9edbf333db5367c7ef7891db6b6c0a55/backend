@@ -2,7 +2,7 @@ import json
 import logging
 
 from flask import Response
-from .vitumob import app
+from vitumob import app
 
 
 @app.route('/')
