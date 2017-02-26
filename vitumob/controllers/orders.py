@@ -51,5 +51,5 @@ def new_order_from_extension():
     order = Order(merchant=new_order['merchant'], uuid=new_order['uuid'], items=item_keys)
     order_key = order.put() # Order.query(Order.key == order_key).get()
 
-    payload = json.dumps({'orderId': order_key})
+    payload = json.dumps({'orderId': order_key.urlsafe() })
     return Response(payload, status=200, mimetype='application/json')
