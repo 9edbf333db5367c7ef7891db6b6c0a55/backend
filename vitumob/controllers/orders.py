@@ -16,7 +16,7 @@ from ..utils.shipping.amazon import AmazonShippingCost
 orders = Blueprint('orders', __name__)
 
 
-@orders.route('/order/new', methods=['POST'])
+@orders.route('/order', methods=['POST'])
 def new_order_from_extension():
     """Receives a new order and store it"""
     new_order = json.loads(request.json['order'])
@@ -73,12 +73,12 @@ def new_order_from_extension():
     order = Order(**new_order)
     order_key = order.put()  # Order.query(Order.key == order_key).get()
 
-    order_info = order_key.get()
+    commited_order = order_key.get()
     payload = json.dumps({
         'order_id': order_key.id(),
         'order_hex': order_key.urlsafe(),
-        'overall_cost': order_info.overall_cost,
-        'markup': (order_info.overall_cost / order_info.total_cost) - 1,
-        'shipping_cost': order_info.shipping_cost
+        'overall_cost': commited_order.overall_cost,
+        'markup': (commited_order.overall_cost / commited_order.total_cost) - 1,
+        'shipping_cost': commited_order.shipping_cost
     })
     return Response(payload, status=200, mimetype='application/json')
