@@ -19,3 +19,9 @@ health_check:
 builtins:
 - appstats: on
 - remote_api: on
+
+libraries:
+- name: ssl
+  version: latest
+- name: lxml
+  version: latest
