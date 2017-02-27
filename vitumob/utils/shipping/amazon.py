@@ -12,7 +12,12 @@ from bs4 import BeautifulSoup
 class AmazonShippingInfo(object):
     AWS_ACCESS_KEY_ID = 'AKIAI6DWQQP2AACCGI6A'
     AWS_SECRET_KEY = '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'
-    endpoint = 'http://webservices.amazon.com/onca/xml'
+    AWS_ENDPOINT = 'http://webservices.amazon.com/onca/xml'
+
+    MINIMUM_WEIGHT = 2.20462
+    SHIPPING_WEIGHT_CONSTANT = 7.5
+    VOLUMETRIC_WEIGHT_CONSTANT = 6000
+    NONE_PRIME_ITEM_CHARGE = 5.00
 
     def __init__(self, items):
         self.items = items
@@ -50,13 +55,10 @@ class AmazonShippingInfo(object):
         query_params_string.sort()
 
         query_params_string = '&'.join(query_params_string)
-        string_to_sign = "GET\nwebservices.amazon.com\n/onca/xml\n{}".format(
-            query_params_string)
-        hash_buffer = hmac.new(self.AWS_SECRET_KEY,
-                               string_to_sign, hashlib.sha256)
+        string_to_sign = "GET\nwebservices.amazon.com\n/onca/xml\n{}".format(query_params_string)
+        hash_buffer = hmac.new(self.AWS_SECRET_KEY, string_to_sign, hashlib.sha256)
         query_params['Signature'] = base64.b64encode(hash_buffer.digest())
-        rest_api_endpoint = "{}?{}".format(
-            self.endpoint, urllib.urlencode(query_params))
+        rest_api_endpoint = "{}?{}".format(self.AWS_ENDPOINT, urllib.urlencode(query_params))
 
         try:
             resp = urllib2.urlopen(rest_api_endpoint)
@@ -93,19 +95,24 @@ class AmazonShippingInfo(object):
                 volumetric_weight = shipping_info['height']
                 volumetric_weight *= shipping_info['width']
                 volumetric_weight *= shipping_info['length']
-                volumetric_weight /= 6000
+                volumetric_weight /= self.VOLUMETRIC_WEIGHT_CONSTANT
 
                 if volumetric_weight > shipping_info['weight']:
-                    shipping_info['shipping_cost'] = volumetric_weight * 7.50
+                    shipping_info['shipping_cost'] = volumetric_weight
                 else:
-                    shipping_info['shipping_cost'] = shipping_info['weight'] * 7.50
+                    shipping_info['shipping_cost'] = shipping_info['weight']
+
+                # with the greater weight selected
+                # get the total shipping cost of the weight
+                shipping_info['shipping_cost'] *= self.SHIPPING_WEIGHT_CONSTANT
             else:
                 # default weight: 1kg == 2.20462 pounds
-                shipping_info['shipping_cost'] = (2.20462 * 7.50)
+                shipping_info['shipping_cost'] = self.MINIMUM_WEIGHT
+                shipping_info['shipping_cost'] *= self.SHIPPING_WEIGHT_CONSTANT
 
             is_prime_item = item.find('IsEligibleForPrime')
             if is_prime_item.text != '1':
-                shipping_info['shipping_cost'] += 5.00
+                shipping_info['shipping_cost'] += self.NONE_PRIME_ITEM_CHARGE
 
             shipping_info['asin'] = item.ASIN.text.encode('utf-8')
             shipping_info['title'] = item.ItemAttributes.Title.text.encode('utf-8')
