@@ -77,8 +77,11 @@ def new_order_from_extension():
     payload = json.dumps({
         'order_id': order_key.id(),
         'order_hex': order_key.urlsafe(),
+        'total_cost': commited_order.total_cost,
+        'customs': commited_order.customs,
+        'vat': commited_order.vat,
         'overall_cost': commited_order.overall_cost,
-        'markup': (commited_order.overall_cost / commited_order.total_cost) - 1,
-        'shipping_cost': commited_order.shipping_cost
+        'shipping_cost': commited_order.shipping_cost,
+        'markup': commited_order.markup
     })
     return Response(payload, status=200, mimetype='application/json')
