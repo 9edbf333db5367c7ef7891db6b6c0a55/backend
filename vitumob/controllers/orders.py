@@ -69,9 +69,9 @@ def new_order_from_extension():
     item_keys = ndb.put_multi(items)
 
     # now store the order, referencing the keys to the items of order
-    new_order.pop('items', item_keys)
+    new_order['items'] = item_keys
     order = Order(**new_order)
-    order_key = order.put()  # Order.query(Order.key == order_key).get()
+    order_key = order.put() # Order.query(Order.key == order_key).get()
 
     commited_order = order_key.get()
     payload = json.dumps({
