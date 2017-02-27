@@ -9,7 +9,7 @@ from functools import reduce
 from bs4 import BeautifulSoup
 
 
-class AmazonShippingCost(object):
+class AmazonShippingInfo(object):
     AWS_ACCESS_KEY_ID = 'AKIAI6DWQQP2AACCGI6A'
     AWS_SECRET_KEY = '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'
     endpoint = 'http://webservices.amazon.com/onca/xml'
