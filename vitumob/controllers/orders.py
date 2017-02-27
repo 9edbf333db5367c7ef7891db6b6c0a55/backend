@@ -10,7 +10,7 @@ from google.appengine.ext import ndb
 from ..models.item import Item, ShippingInfo
 from ..models.order import Order
 # from ..utils import ndb_json
-from ..utils.shipping.amazon import AmazonShippingCost
+from ..utils.shipping.amazon import AmazonShippingInfo
 
 
 orders = Blueprint('orders', __name__)
@@ -23,7 +23,7 @@ def new_order_from_extension():
 
     # if order is from amazon, get the shipping information of each item
     if 'amazon' in new_order['merchant']:
-        amazon = AmazonShippingCost(new_order['items'])
+        amazon = AmazonShippingInfo(new_order['items'])
         items_shipping_info = amazon.get_shipping_info()
 
         if len(items_shipping_info) > 0:
