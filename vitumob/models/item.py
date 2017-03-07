@@ -11,7 +11,7 @@ class ShippingInfo(ndb.Model):
 
 
 class Item(ndb.Expando):
-    id = ndb.StringProperty()
+    id = ndb.GenericProperty()
     name = ndb.StringProperty()
     image = ndb.StringProperty()
     link = ndb.StringProperty()
@@ -24,3 +24,6 @@ class Item(ndb.Expando):
     created_at = ndb.DateTimeProperty(auto_now_add=True)
     updated_at = ndb.DateTimeProperty(auto_now=True)
     # Others - size, color, asin, model_no
+
+    def _pre_put_hook(self):
+        self.id = str(self.id)
