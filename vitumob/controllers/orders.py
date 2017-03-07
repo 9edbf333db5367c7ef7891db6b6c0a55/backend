@@ -49,11 +49,19 @@ def new_order_from_extension():
 
     # if items not from amazon
     else:
-        def return_with_costs(item):
+        def return_item_with_costs(item):
             item['total_cost'] = item['price'] * item['quantity']
             item['shipping_cost'] = item['quantity'] * (2.20462 * 7.50)
             return item
-        new_order['items'] = map(return_with_costs, new_order['items'])
+        new_order['items'] = map(return_item_with_costs, new_order['items'])
+
+    # DataStore uses id to retrieve the item auto-assigned key
+    # Thus use 'item_id' instead
+    def set_item_id(item):
+        item['item_id'] = item['id']
+        item.pop('id', None)
+        return item
+    new_order['items'] = map(set_item_id, new_order['items'])
 
     # calculate the order's total shipping cost
     item_shipping_costs = [item['shipping_cost'] for item in new_order['items']]
@@ -84,3 +92,12 @@ def new_order_from_extension():
         'markup': commited_order.markup
     })
     return Response(payload, status=200, mimetype='application/json')
+
+
+@orders.route('/order/<string:order_id>/item/<string:item_id>', methods=['DELETE'])
+def remove_item_from_order(order_id, item_id):
+    pass
+
+@orders.route('/order/<string:order_id>/coupon/<string:coupon_code>', methods=['PUT'])
+def apply_coupon_code_to_order(order_id, coupon_code):
+    pass
