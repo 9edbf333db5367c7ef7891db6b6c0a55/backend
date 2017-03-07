@@ -3,7 +3,6 @@
 import json
 import logging
 
-from functools import reduce
 from flask import Blueprint, Response, request
 from google.appengine.ext import ndb
 
@@ -61,8 +60,8 @@ def new_order_from_extension():
     new_order['shipping_cost'] = reduce(lambda a, b: a + b, item_shipping_costs, 0.00)
 
     # calculate the order's total item costs
-    costs_of_items = [item['total_cost'] for item in new_order['items']]
-    new_order['total_cost'] = reduce(lambda a, b: a + b, costs_of_items, 0.00)
+    cost_per_items = [item['total_cost'] for item in new_order['items']]
+    new_order['total_cost'] = reduce(lambda a, b: a + b, cost_per_items, 0.00)
 
     # store the items 1st, collecting their DB keys
     items = [Item(**item) for item in new_order['items']]

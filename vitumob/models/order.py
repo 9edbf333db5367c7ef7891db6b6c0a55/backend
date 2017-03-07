@@ -2,7 +2,7 @@ from google.appengine.ext import ndb
 from .item import Item
 
 
-class Order(ndb.Model):
+class Order(ndb.Expando):
     uuid = ndb.StringProperty()
     # belongs_to = ndb.StringProperty()
     merchant = ndb.StringProperty()
@@ -25,4 +25,4 @@ class Order(ndb.Model):
         ], 0.00)
 
         self.markup = (self.overall_cost / self.total_cost) - 1
-        self.markup = float(format(self.markup, ".2f"))
+        self.markup = float(format(self.markup, ".4f")) * 100

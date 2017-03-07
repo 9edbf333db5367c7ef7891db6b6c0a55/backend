@@ -70,7 +70,11 @@ class AmazonShippingInfo(object):
 
     @classmethod
     def extract_shipping_information(self, soap_response):
-        # print soap_response
+        # date = datetime.datetime.now().isoformat()
+        # xml_file = open("amazon-{}Z.xml".format(date.split('.')[0]), "w")
+        # xml_file.write(soap_response.encode('utf-8'))
+        # xml_file.close()
+
         soup = BeautifulSoup(soap_response.encode('utf-8'), 'xml')
         items = soup.find_all('Item')
 
@@ -92,11 +96,13 @@ class AmazonShippingInfo(object):
                         100 if in_hundreths else float(value.text)
                     shipping_info[value.name.lower()] = switch(unit, val)
 
+                # volumetric weight = w * h * l / 6000
                 volumetric_weight = shipping_info['height']
                 volumetric_weight *= shipping_info['width']
                 volumetric_weight *= shipping_info['length']
                 volumetric_weight /= self.VOLUMETRIC_WEIGHT_CONSTANT
 
+                # select the greater weight of the two
                 if volumetric_weight > shipping_info['weight']:
                     shipping_info['shipping_cost'] = volumetric_weight
                 else:
@@ -110,6 +116,7 @@ class AmazonShippingInfo(object):
                 shipping_info['shipping_cost'] = self.MINIMUM_WEIGHT
                 shipping_info['shipping_cost'] *= self.SHIPPING_WEIGHT_CONSTANT
 
+            # check if the item is a prime item
             is_prime_item = item.find('IsEligibleForPrime')
             if is_prime_item.text != '1':
                 shipping_info['shipping_cost'] += self.NONE_PRIME_ITEM_CHARGE
