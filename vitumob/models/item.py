@@ -11,7 +11,7 @@ class ShippingInfo(ndb.Model):
 
 
 class Item(ndb.Expando):
-    id = ndb.GenericProperty()
+    item_id = ndb.GenericProperty()
     name = ndb.StringProperty()
     image = ndb.StringProperty()
     link = ndb.StringProperty()
@@ -26,4 +26,4 @@ class Item(ndb.Expando):
     # Others - size, color, asin, model_no
 
     def _pre_put_hook(self):
-        self.id = str(self.id)
+        self.item_id = str(self.item_id)
