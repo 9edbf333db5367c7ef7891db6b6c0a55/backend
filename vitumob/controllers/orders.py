@@ -33,7 +33,6 @@ def new_order_from_extension():
                 if len(shipping_info) > 0:
                     shipping_info = shipping_info[0]
                     item['name'] = shipping_info['title']
-                    item['total_cost'] = item['price'] * item['quantity']
                     item['shipping_cost'] = shipping_info['shipping_cost'] * item['quantity']
 
                     shipping_info.pop('asin', None)
@@ -47,21 +46,22 @@ def new_order_from_extension():
 
                 new_order['items'][index] = item
 
-    # if items not from amazon
-    else:
-        def return_item_with_costs(item):
-            item['total_cost'] = item['price'] * item['quantity']
-            item['shipping_cost'] = item['quantity'] * (2.20462 * 7.50)
-            return item
-        new_order['items'] = map(return_item_with_costs, new_order['items'])
-
-    # DataStore uses id to retrieve the item auto-assigned key
-    # Thus use 'item_id' instead
-    def set_item_id(item):
+    def run_some_tasks_per_item(item):
+        """delete id, calculate total_cost and add missing shipping_cost"""
+        # reassign the 'id' property and delete it
+        # datastore uses 'id' to retrieve the item auto-assigned key
         item['item_id'] = item['id']
         item.pop('id', None)
+
+        # get total_cost per item
+        item['total_cost'] = item['price'] * item['quantity']
+
+        # if shipping info is missing get the default shipping cost
+        if item['shipping_info'] is None:
+            item['shipping_cost'] = item['quantity'] * (2.20462 * 7.50)
+
         return item
-    new_order['items'] = map(set_item_id, new_order['items'])
+    new_order['items'] = map(run_some_tasks_per_item, new_order['items'])
 
     # calculate the order's total shipping cost
     item_shipping_costs = [item['shipping_cost'] for item in new_order['items']]
@@ -71,11 +71,12 @@ def new_order_from_extension():
     cost_per_items = [item['total_cost'] for item in new_order['items']]
     new_order['total_cost'] = reduce(lambda a, b: a + b, cost_per_items, 0.00)
 
-    # store the items 1st, collecting their DB keys
+    # store the items 1st, collecting their assigned reference keys from DB
     items = [Item(**item) for item in new_order['items']]
     item_keys = ndb.put_multi(items)
 
-    # now store the order, referencing the keys to the items of order
+    # reference the keys to the items in the order
+    # and store the order
     new_order['items'] = item_keys
     order = Order(**new_order)
     order_key = order.put() # Order.query(Order.key == order_key).get()
@@ -93,11 +94,3 @@ def new_order_from_extension():
     })
     return Response(payload, status=200, mimetype='application/json')
 
-
-@orders.route('/order/<string:order_id>/item/<string:item_id>', methods=['DELETE'])
-def remove_item_from_order(order_id, item_id):
-    pass
-
-@orders.route('/order/<string:order_id>/coupon/<string:coupon_code>', methods=['PUT'])
-def apply_coupon_code_to_order(order_id, coupon_code):
-    pass
