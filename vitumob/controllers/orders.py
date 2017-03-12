@@ -8,8 +8,8 @@ from google.appengine.ext import ndb
 
 from ..models.item import Item, ShippingInfo
 from ..models.order import Order
-# from ..utils import ndb_json
 from ..utils.shipping.amazon import AmazonShippingInfo
+# from ..utils import ndb_json
 
 
 orders = Blueprint('orders', __name__)
@@ -57,7 +57,7 @@ def new_order_from_extension():
         item['total_cost'] = item['price'] * item['quantity']
 
         # if shipping info is missing get the default shipping cost
-        if item['shipping_info'] is None:
+        if 'shipping_info' not in item:
             item['shipping_cost'] = item['quantity'] * (2.20462 * 7.50)
 
         return item
