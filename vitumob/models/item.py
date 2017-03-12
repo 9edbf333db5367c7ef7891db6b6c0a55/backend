@@ -27,3 +27,10 @@ class Item(ndb.Expando):
 
     def _pre_put_hook(self):
         self.item_id = str(self.item_id)
+        self.total_cost = self.price * self.quantity
+
+        if self.shipping_info:
+            self.shipping_cost = self.shipping_info.shipping_cost * self.quantity
+            return
+
+        self.shipping_cost = self.quantity * (2.20462 * 7.50)
