@@ -6,9 +6,9 @@ from vitumob import app
 
 
 @app.route('/')
-def index():
-    health_check = json.dumps({'status': 200, 'message': 'Hello world!'})
-    return Response(health_check, status=200, mimetype='application/json')
+def index_health_check():
+    payload = json.dumps({'status': 200, 'message': 'Hello world!'})
+    return Response(payload, status=200, mimetype='application/json')
 
 @app.errorhandler(500)
 def server_error(error):
