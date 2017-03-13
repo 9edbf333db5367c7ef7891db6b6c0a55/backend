@@ -1,10 +1,13 @@
 import json
+from datetime import datetime
 
 from flask import Blueprint, Response, request
 from google.appengine.ext import ndb
 
-from ..utils import ndb_json
 from ..models.order import Order
+from ..models.coupon import Coupon
+from ..utils import ndb_json
+
 
 cart = Blueprint('cart', __name__)
 
@@ -65,3 +68,29 @@ def update_item_quantity_in_order(order_id, item_id):
     })
     return Response(payload, status=404, mimetype='application/json')
 
+
+@cart.route('/cart/<string:order_id>/coupon/<string:coupon_code>', methods=['PUT'])
+def apply_coupon_code_to_order(order_id, coupon_code):
+    """Apply a coupon code to an order"""
+    order = ndb.Key(Order, ndb.Key(urlsafe=order_id).id())
+    order = order.get()
+
+    # get the coupon info from the DB
+    coupon_code = ndb.Key(Coupon, ndb.Key(urlsafe=coupon_code).id())
+    if coupon_code is not None:
+        coupon_code = coupon_code.get()
+
+        # check if the coupon code is still valid
+        if coupon_code.expiration_date > datetime.now():
+            if coupon_code.percent:
+                order.total_cost *= 100 - coupon_code.percentage
+            else:
+                order.total_cost -= coupon_code.amount
+
+        order.coupon_code = coupon_code.key
+        order.put()
+
+    payload = ndb_json.dumps({
+        'coupon': order.coupon_code
+    })
+    return Response(payload, status=404, mimetype='application/json')

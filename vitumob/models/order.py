@@ -1,5 +1,6 @@
 from google.appengine.ext import ndb
 from .item import Item
+from .coupon import Coupon
 
 
 class Order(ndb.Expando):
@@ -15,6 +16,8 @@ class Order(ndb.Expando):
     markup = ndb.FloatProperty()
     created_at = ndb.DateTimeProperty(auto_now_add=True)
     updated_at = ndb.DateTimeProperty(auto_now=True)
+    # coupon_code = ndb.ReferenceProperty(Coupon, collection_name='coupon', required=False)
+    coupon_code = ndb.KeyProperty(kind=Coupon)
 
     def _pre_put_hook(self):
         self.overall_cost = reduce(lambda a, b: a + b, [
