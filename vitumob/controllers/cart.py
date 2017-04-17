@@ -51,11 +51,11 @@ def update_item_quantity_in_order(order_id, item_id):
 
         # now we also need to update the order information
         # recalculate the order's total shipping cost
-        item_shipping_costs = [item.shipping_cost for item in order_items]
+        item_shipping_costs = [itm.shipping_cost for itm in order_items]
         order.shipping_cost = reduce(lambda a, b: a + b, item_shipping_costs, 0.00)
 
         # recalculate the order's total item costs
-        cost_per_items = [item.total_cost for item in order_items]
+        cost_per_items = [itm.total_cost for itm in order_items]
         order.total_cost = reduce(lambda a, b: a + b, cost_per_items, 0.00)
         order.put()
 
@@ -87,10 +87,20 @@ def apply_coupon_code_to_order(order_id, coupon_code):
             else:
                 order.total_cost -= coupon_code.amount
 
-        order.coupon_code = coupon_code.key
-        order.put()
+            if coupon_code.multiple_use is True:
+                coupon_code.used += 1
+                coupon_code.put()
 
-    payload = ndb_json.dumps({
-        'coupon': order.coupon_code
-    })
-    return Response(payload, status=404, mimetype='application/json')
+            order.coupon_code = coupon_code.key
+            order.put()
+            payload = ndb_json.dumps({'coupon': order.coupon_code})
+            status_code = 200
+
+        # The coupon code has expired
+        else:
+            payload = json.dumps({
+                'message': 'Coupon code has expired'
+            })
+            status_code = 409
+
+    return Response(payload, status=status_code, mimetype='application/json')

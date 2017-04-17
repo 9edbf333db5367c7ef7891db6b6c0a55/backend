@@ -11,6 +11,8 @@ TESTS-bf4a577b8390.json
 ./.Python
 ./tags
 .vscode
+myserver.*
+coupons.py
 
 ### Bower ###
 bower_components
