@@ -3,10 +3,15 @@ import hashlib
 import base64
 import datetime
 import urllib
-import urllib2
 from math import ceil
 from functools import reduce
 from bs4 import BeautifulSoup
+
+import requests
+import requests_toolbelt.adapters.appengine
+# Use the App Engine Requests adapter.
+# This makes sure that Requests uses URLFetch.
+requests_toolbelt.adapters.appengine.monkeypatch()
 
 
 class AmazonShippingInfo(object):
@@ -38,10 +43,10 @@ class AmazonShippingInfo(object):
         return reduce(self.fetch_shipping_info, slices, shipping_info)
 
     @classmethod
-    def fetch_shipping_info(self, shipping_info, items):
+    def fetch_shipping_info(cls, shipping_info, items):
         iso_datetime = datetime.datetime.now().isoformat()
         query_params = {
-            'AWSAccessKeyId': self.AWS_ACCESS_KEY_ID,
+            'AWSAccessKeyId': cls.AWS_ACCESS_KEY_ID,
             'Service': 'AWSECommerceService',
             'AssociateTag': 'vit09-20',
             'Operation': 'ItemLookup',
@@ -56,20 +61,20 @@ class AmazonShippingInfo(object):
 
         query_params_string = '&'.join(query_params_string)
         string_to_sign = "GET\nwebservices.amazon.com\n/onca/xml\n{}".format(query_params_string)
-        hash_buffer = hmac.new(self.AWS_SECRET_KEY, string_to_sign, hashlib.sha256)
+        hash_buffer = hmac.new(cls.AWS_SECRET_KEY, string_to_sign, hashlib.sha256)
         query_params['Signature'] = base64.b64encode(hash_buffer.digest())
-        rest_api_endpoint = "{}?{}".format(self.AWS_ENDPOINT, urllib.urlencode(query_params))
+        rest_api_endpoint = "{}?{}".format(cls.AWS_ENDPOINT, urllib.urlencode(query_params))
 
         try:
-            resp = urllib2.urlopen(rest_api_endpoint)
-            soap_response = urllib.unquote(resp.read()).decode('utf-8')
-            batch_items_shipping_info = self.extract_shipping_information(soap_response)
+            soap_response = requests.get(rest_api_endpoint)
+            soap_response.raise_for_status()
+            batch_items_shipping_info = cls.extract_shipping_information(soap_response.text)
             return shipping_info + batch_items_shipping_info
-        except urllib2.URLError:
-            raise urllib2.URLError
+        except requests.HTTPError:
+            raise requests.HTTPError
 
     @classmethod
-    def extract_shipping_information(self, soap_response):
+    def extract_shipping_information(cls, soap_response):
         # date = datetime.datetime.now().isoformat()
         # xml_file = open("amazon-{}Z.xml".format(date.split('.')[0]), "w")
         # xml_file.write(soap_response.encode('utf-8'))
@@ -100,7 +105,7 @@ class AmazonShippingInfo(object):
                 volumetric_weight = shipping_info['height']
                 volumetric_weight *= shipping_info['width']
                 volumetric_weight *= shipping_info['length']
-                volumetric_weight /= self.VOLUMETRIC_WEIGHT_CONSTANT
+                volumetric_weight /= cls.VOLUMETRIC_WEIGHT_CONSTANT
 
                 # select the greater weight of the two
                 if volumetric_weight > shipping_info['weight']:
@@ -110,16 +115,16 @@ class AmazonShippingInfo(object):
 
                 # with the greater weight selected
                 # get the total shipping cost of the weight
-                shipping_info['shipping_cost'] *= self.SHIPPING_WEIGHT_CONSTANT
+                shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
             else:
                 # default weight: 1kg == 2.20462 pounds
-                shipping_info['shipping_cost'] = self.MINIMUM_WEIGHT
-                shipping_info['shipping_cost'] *= self.SHIPPING_WEIGHT_CONSTANT
+                shipping_info['shipping_cost'] = cls.MINIMUM_WEIGHT
+                shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
 
             # check if the item is a prime item
             is_prime_item = item.find('IsEligibleForPrime')
             if is_prime_item.text != '1':
-                shipping_info['shipping_cost'] += self.NONE_PRIME_ITEM_CHARGE
+                shipping_info['shipping_cost'] += cls.NONE_PRIME_ITEM_CHARGE
 
             shipping_info['asin'] = item.ASIN.text.encode('utf-8')
             shipping_info['title'] = item.ItemAttributes.Title.text.encode('utf-8')
