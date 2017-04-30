@@ -7,17 +7,8 @@ from vitumob import app
 
 @app.route('/')
 def index_health_check():
-    payload = json.dumps({'status': 200, 'message': 'This is a workshop!'})
+    payload = json.dumps({'status': 200, 'message': 'Everything Everyday!'})
     return Response(payload, status=200, mimetype='application/json')
-
-
-# @app.route('/.well-known/acme-challenge/2r6jnEs30BDi_HxILHm0CjHcoPiwShcgj170pUAi00c')
-# def text_file():
-#     return Response(
-#         "2r6jnEs30BDi_HxILHm0CjHcoPiwShcgj170pUAi00c.dlf2j_BIl7PBEmHH0MRMrpiy2320lU4SzFr4iGWJlrI",
-#         status=200,
-#         mimetype="text/plain"
-#     )
 
 
 @app.errorhandler(500)
