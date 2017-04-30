@@ -1,3 +1,4 @@
+import os
 import hmac
 import hashlib
 import base64
@@ -15,10 +16,6 @@ requests_toolbelt.adapters.appengine.monkeypatch()
 
 
 class AmazonShippingInfo(object):
-    AWS_ACCESS_KEY_ID = 'AKIAI6DWQQP2AACCGI6A'
-    AWS_SECRET_KEY = '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'
-    AWS_ENDPOINT = 'http://webservices.amazon.com/onca/xml'
-
     MINIMUM_WEIGHT = 2.20462
     SHIPPING_WEIGHT_CONSTANT = 7.5
     VOLUMETRIC_WEIGHT_CONSTANT = 6000
@@ -46,24 +43,28 @@ class AmazonShippingInfo(object):
     def fetch_shipping_info(cls, shipping_info, items):
         iso_datetime = datetime.datetime.now().isoformat()
         query_params = {
-            'AWSAccessKeyId': cls.AWS_ACCESS_KEY_ID,
+            'AWSAccessKeyId': os.environ.get("AWS_ACCESS_KEY_ID"),
             'Service': 'AWSECommerceService',
             'AssociateTag': 'vit09-20',
             'Operation': 'ItemLookup',
             'ItemId': ','.join([item['id'] for item in items]),
             'ResponseGroup': 'ItemAttributes,OfferFull',
             # 2017-02-21T14:11:56Z'
-            'Timestamp': "{}Z".format(iso_datetime.split('.')[0]),
+            'Timestamp': "{timestamp}Z".format(timestamp=iso_datetime.split('.')[0]),
         }
+        print query_params
 
         query_params_string = urllib.urlencode(query_params).split('&')
         query_params_string.sort()
 
         query_params_string = '&'.join(query_params_string)
         string_to_sign = "GET\nwebservices.amazon.com\n/onca/xml\n{}".format(query_params_string)
-        hash_buffer = hmac.new(cls.AWS_SECRET_KEY, string_to_sign, hashlib.sha256)
+        hash_buffer = hmac.new(os.environ.get("AWS_SECRET_KEY"), string_to_sign, hashlib.sha256)
         query_params['Signature'] = base64.b64encode(hash_buffer.digest())
-        rest_api_endpoint = "{}?{}".format(cls.AWS_ENDPOINT, urllib.urlencode(query_params))
+        rest_api_endpoint = "{endpoint}?{query_params}".format(
+            endpoint=os.environ.get("AWS_ENDPOINT"),
+            query_params=urllib.urlencode(query_params)
+        )
 
         try:
             soap_response = requests.get(rest_api_endpoint)
