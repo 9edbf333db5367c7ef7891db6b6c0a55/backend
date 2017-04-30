@@ -13,6 +13,8 @@ TESTS-bf4a577b8390.json
 .vscode
 myserver.*
 coupons.py
+ENV.py
+app.yaml
 
 ### Bower ###
 bower_components
