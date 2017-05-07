@@ -14,7 +14,7 @@ TESTS-bf4a577b8390.json
 myserver.*
 coupons.py
 .env.py
-app.yaml
+*.yaml
 
 ### Bower ###
 bower_components

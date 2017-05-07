@@ -6,6 +6,7 @@ from google.appengine.ext import ndb
 
 from ..models.order import Order
 from ..models.coupon import Coupon
+from ..models.location import Location
 from ..utils import ndb_json
 
 
@@ -104,3 +105,27 @@ def apply_coupon_code_to_order(order_id, coupon_code):
             status_code = 409
 
     return Response(payload, status=status_code, mimetype='application/json')
+
+
+@cart.route('/cart/<string:order_id>/location', methods=['POST'])
+def set_order_delivery_location(order_id):
+    """Set Order delivery Location"""
+    order = ndb.Key(Order, ndb.Key(urlsafe=order_id).id())
+    order = order.get()
+
+    delivery_location = json.loads(request.form['delivery_location'])
+    location = Location.get_by_id(delivery_location['id'])
+
+    if location is None:
+        location = Location(**delivery_location)
+        location = location.put()
+
+    if 'home_area' in delivery_location and delivery_location['home_area'] is True:
+        # Set the user's location as the selected delivery location
+        pass
+
+    location = location if hasattr(location, 'key') else location.get()
+    order.delivery_location = location.key
+
+    payload = json.dumps({'location_id': location.key.id()})
+    return Response(payload, status=200, mimetype='application/json')
