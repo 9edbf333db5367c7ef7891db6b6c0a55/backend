@@ -2,6 +2,7 @@ from google.appengine.ext import ndb
 from .item import Item
 from .coupon import Coupon
 from .paypal import PayPalPayment
+from .location import Location
 
 
 class Order(ndb.Expando):
@@ -18,8 +19,9 @@ class Order(ndb.Expando):
     exchange_rate = ndb.FloatProperty(default=0.00)
     base_currency = ndb.StringProperty(default='USD')
     coupon_code = ndb.KeyProperty(kind=Coupon)
-    # coupon_code = ndb.ReferenceProperty(Coupon, collection_name='coupon', required=False)
+    # coupon_code = ndb.ReferenceProperty(Coupon, collection_name='coupon')
     payment = ndb.KeyProperty(kind=PayPalPayment)
+    delivery_location = ndb.KeyProperty(kind=Location)
 
     is_temporary = ndb.BooleanProperty(default=True)
     created_at = ndb.DateTimeProperty(auto_now_add=True)
