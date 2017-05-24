@@ -21,23 +21,27 @@ exchangerates = Blueprint('exchangerates', __name__)
 @exchangerates.route('/exchange/rates', methods=['GET'])
 def get_exchange_rates():
     api_id = os.environ.get('OPENEXCHANGE_API_ID')
-    exchangerates_endpoint = "https://openexchangerates.org/api/latest.json?app_id=%s" % api_id
+    exchangerates_endpoint = "https://openexchangerates.org/api/latest.json?app_id={}".format(api_id)
 
     rates_key = ndb.Key(Rates, api_id)
     stored_rates = Rates.get_or_insert(rates_key.id())
 
     diff_hours = math.floor((datetime.now() - stored_rates.updated_at).seconds / 3600)
     if diff_hours > 4 or len(stored_rates.to_dict()['rates']) <= 0:
-        payload = requests.get(exchangerates_endpoint)
-        payload.raise_for_status()
-        payload = payload.json()
+        response = requests.get(exchangerates_endpoint)
 
-        rates = [Currency(code=currency, rate=rate)
-                 for currency, rate in payload['rates'].items()
-                 if currency in ['EUR', 'GBP', 'KES']]
+        if response.status_code == 200:
+            response = response.json()
 
-        stored_rates.rates = rates
-        stored_rates.put()
+            rates = [Currency(code=currency, rate=rate)
+                     for currency, rate in response['rates'].items()
+                     if currency in ['EUR', 'GBP', 'KES']]
+
+            stored_rates.rates = rates
+            stored_rates.put()
+
+        if response.status_code != 200:
+            return Response(response.text, status=200, mimetype='application/json')
 
     rates = stored_rates.to_dict()
     rates.pop('created_at', None)
