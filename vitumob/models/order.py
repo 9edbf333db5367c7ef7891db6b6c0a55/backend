@@ -3,11 +3,11 @@ from .item import Item
 from .coupon import Coupon
 from .paypal import PayPalPayment
 from .location import Location
+from .user import User
 
 
 class Order(ndb.Expando):
-    uuid = ndb.StringProperty()
-    # belongs_to = ndb.StringProperty()
+    user = ndb.KeyProperty(kind=User)
     merchant = ndb.StringProperty()
     items = ndb.KeyProperty(kind=Item, repeated=True)
     total_cost = ndb.FloatProperty(default=0.00)
