@@ -18,7 +18,7 @@ class PayPalToken(ndb.Model):
 
 
 class PayPalPayer(ndb.Model):
-    id = ndb.StringProperty(required=True)
+    # id = ndb.StringProperty(required=True)
     email = ndb.StringProperty(required=True)
     first_name = ndb.StringProperty()
     last_name = ndb.StringProperty()
@@ -26,7 +26,7 @@ class PayPalPayer(ndb.Model):
 
 
 class PayPalPayment(ndb.Model):
-    id = ndb.StringProperty(required=True)
+    # id = ndb.StringProperty(required=True)
     amount = ndb.FloatProperty(required=True, default=0.00)
     local_amount = ndb.FloatProperty(default=0.00)
     create_time = ndb.DateTimeProperty()
