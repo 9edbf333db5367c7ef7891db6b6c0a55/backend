@@ -59,12 +59,16 @@ def create_paypal_payment():
 
 @payments.route('/payments/paypal/create/<string:order_id>', methods=['POST'])
 def execute_paypal_payment(order_id):
-    """Initialises a payment, returning an approval URL to redirect or take the user to approve the payment"""
+    """
+    Initialise a payment, returning an approval URL to redirect or
+    take the user to approve the payment
+    """
     order = ndb.Key(Order, ndb.Key(urlsafe=order_id).id())
     order = order.get()
 
     access_token = request.headers['Authorization']
-    endpoint = 'https://api.sandbox.paypal.com/v1/payments/payment'
+    resource = 'https://api.sandbox.paypal.com/v1/payments/payment'
+    vm_resource = 'https://vitumob-xyz.appspot.com/payments/paypal'
     headers = {
         "Content-Type": "application/json",
         "Authorization": "Bearer {access_token}".format(access_token=access_token)
@@ -74,6 +78,12 @@ def execute_paypal_payment(order_id):
         info="Contact us for any questions on your order",
         order_id=order_id
     )
+
+    vitumob_payment_resources = {
+        'endpoint': vm_resource,
+        'order_id': order_id
+    }
+
     payment_info = {
         "intent": "sale",
         "payer": {
@@ -87,17 +97,17 @@ def execute_paypal_payment(order_id):
                 },
                 "description": "VituMob - Everything Everyday.",
                 "note_to_payee": note_to_payee,
-                # "notify_url": "https://vitumob.xyz/payments/paypal/notifications"
+                # "notify_url": "{resource}/notifications".format(resource=vm_resource)
             }
         ],
         "redirect_urls": {
-            "return_url": "https://vitumob.xyz/payments/paypal/approved/%s" % order_id,
-            "cancel_url": "https://vitumob.xyz/payments/paypal/cancelled/%s" % order_id
+            "return_url": "{resource}/approved/{order_id}".format(**vitumob_payment_resources),
+            "cancel_url": "{resource}/cancelled/{order_id}".format(**vitumob_payment_resources)
         },
     }
     logging.debug(json.dumps(headers))
     logging.debug(json.dumps(payment_info))
-    response = requests.post(endpoint, headers=headers, json=payment_info)
+    response = requests.post(resource, headers=headers, json=payment_info)
 
     if response.status_code == 201:
         payment_details = response.json()
@@ -111,10 +121,14 @@ def execute_paypal_payment(order_id):
         order.payment = payment.put()
         order.put()
 
+        r = response.json()
+        payload = json.dumps({'links': r['links']})
+        return Response(payload, status=response.status_code, mimetype='application/json')
+
     return Response(response.text, status=response.status_code, mimetype='application/json')
 
 
-# https://vitumob.xyz/payments/paypal/approved/aghkZXZ-Tm9uZXISCxIFT3JkZXIYgICAgIDg9wkM
+# https://vitumob-xyz.appspot.com/payments/paypal/approved/aghkZXZ-Tm9uZXISCxIFT3JkZXIYgICAgIDg9wkM
 # ?paymentId=PAY-5DW7657589732850VLD75OSI&token=EC-0WU786306C7964538&PayerID=R6NVJ4B97J9G2
 @payments.route('/payments/paypal/approved/<string:order_id>', methods=['GET'])
 def user_approved_paypal_payment(order_id):
@@ -174,6 +188,7 @@ def user_approved_paypal_payment(order_id):
             payload = ndb_json.dumps(payment)
             return Response(payload, status=response.status_code, mimetype='application/json')
 
+        # The payment execusion failed
         return Response(response.text, status=response.status_code, mimetype='application/json')
 
     payload = json.dumps({'status': 401, 'message': 'Payment processing failed'})
