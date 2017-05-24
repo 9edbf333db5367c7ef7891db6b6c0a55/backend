@@ -8,8 +8,8 @@ from google.appengine.ext import ndb
 
 from ..models.item import Item, ShippingInfo
 from ..models.order import Order
+from ..models.user import User
 from ..utils.shipping.amazon import AmazonShippingInfo
-# from ..utils import ndb_json
 
 
 orders = Blueprint('orders', __name__)
@@ -94,3 +94,24 @@ def new_order_from_extension():
     })
     return Response(payload, status=200, mimetype='application/json')
 
+
+@orders.route('/order/<string:order_id>', methods=['PUT', 'PATCH'])
+def relate_user_to_their_order(order_id):
+    """Adds user to the order they created for relational purposes"""
+    order = ndb.Key(Order, ndb.Key(urlsafe=order_id).id())
+    order = order.get()
+
+    if order is not None:
+        posted_user = json.loads(request.json['user'])
+        user = User.get_by_id(ndb.Key(User, posted_user['id']).id())
+
+        if user is not None:
+            order.user = user.key
+            order.put()
+            return Response(json.dumps({}), status=200, mimetype='application/json')
+
+        payload = json.dumps({'message': 'error/user-not-found'})
+        return Response(payload, status=404, mimetype='application/json')
+
+    payload = json.dumps({'message': 'error/order-not-found'})
+    return Response(payload, status=404, mimetype='application/json')
