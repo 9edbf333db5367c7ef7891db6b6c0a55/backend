@@ -120,11 +120,13 @@ def set_order_delivery_location(order_id):
         location = Location(**delivery_location)
         location = location.put()
 
+    location = location if hasattr(location, 'key') else location.get()
     if 'home_area' in delivery_location and delivery_location['home_area'] is True:
         # Set the user's location as the selected delivery location
-        pass
+        user =  order.user.get()
+        user.delivery_location = location.key
+        user.put()
 
-    location = location if hasattr(location, 'key') else location.get()
     order.delivery_location = location.key
 
     payload = json.dumps({'location_id': location.key.id()})
