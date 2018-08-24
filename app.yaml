@@ -5,9 +5,12 @@ threadsafe: true
 handlers:
 - url: /.*
   script: main.app
+- url: /_ah/queue/deferred
+  script: google.appengine.ext.deferred.deferred.application
+  login: admin
 
 health_check:
-  enable_health_check: False
+  enable_health_check: True
   check_interval_sec: 5
   timeout_sec: 4
   unhealthy_threshold: 2
@@ -16,9 +19,24 @@ health_check:
 builtins:
 - appstats: on
 - remote_api: on
+- deferred: on
 
 libraries:
 - name: ssl
   version: latest
 - name: lxml
   version: latest
+- name: pycrypto
+  version: latest
+
+env_variables:
+  AWS_ACCESS_KEY_ID: AKIAI6DWQQP2AACCGI6A
+  AWS_SECRET_KEY: 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
+  AWS_ENDPOINT: http://webservices.amazon.com/onca/xml
+  PAYPAL_CLIENT_ID: AVDu5BB-eVDCiLnn-SYIZUYUI5aw-TFsaXQeZ2L_xNas1azA_IrVDxDRbjZ-
+  PAYPAL_SECRET_KEY: EL_iShB1BAMYB6f-O1kReNNKOIIBw7zfxRCzFkdRFtpoDeB35l6tzq9pO1sg
+  OPENEXCHANGE_API_ID: 2c810ebdf33d43c9972e09538b061ac7
+  PUSHER_APP_ID: 332584
+  PUSHER_APP_KEY: f4dafc8eb79a349ad06a
+  PUSHER_APP_SECRET: 40303464f10015c00dcb
+  HOSTGATOR_SYNC_ENDPOINT: https://vitumob.com/sync

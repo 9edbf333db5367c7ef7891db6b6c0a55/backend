@@ -25,6 +25,7 @@ def get_order_by_id(order_id):
         new_item['id'] = item.key.urlsafe()
         new_item['num_id'] = item.key.id()
         return new_item
+
     order['items'] = map(add_item_id_and_key, ndb.get_multi(order['items']))
     order['id'] = order_id
 
@@ -42,18 +43,26 @@ def update_item_quantity_in_order(order_id, item_id):
     order = order.get()
     order_items = ndb.get_multi(order.to_dict()['items'])
 
-    item = [item.key.get() for item in order_items if item.key.urlsafe() == item_id]
+    item = [item.key.get()
+            for item in order_items if item.key.urlsafe() == item_id]
     if len(item) > 0:
         item = item[0]
-        item.quantity = (request.json['quantity']
-                         if request.json and 'quantity' in request.json else item.quantity + 1)
+
+        # by default add 1
+        item.quantity += 1
+
+        # else if item quantity provided, set it to the provided quantity
+        if request.json and 'quantity' in request.json:
+            item.quantity = request.json['quantity']
+
         # update the item in the DB
         item.put()
 
         # now we also need to update the order information
         # recalculate the order's total shipping cost
         item_shipping_costs = [itm.shipping_cost for itm in order_items]
-        order.shipping_cost = reduce(lambda a, b: a + b, item_shipping_costs, 0.00)
+        order.shipping_cost = reduce(
+            lambda a, b: a + b, item_shipping_costs, 0.00)
 
         # recalculate the order's total item costs
         cost_per_items = [itm.total_cost for itm in order_items]
@@ -123,11 +132,12 @@ def set_order_delivery_location(order_id):
     location = location if hasattr(location, 'key') else location.get()
     if 'home_area' in delivery_location and delivery_location['home_area'] is True:
         # Set the user's location as the selected delivery location
-        user =  order.user.get()
+        user = order.user.get()
         user.delivery_location = location.key
         user.put()
 
     order.delivery_location = location.key
+    order.put()
 
     payload = json.dumps({'location_id': location.key.id()})
     return Response(payload, status=200, mimetype='application/json')

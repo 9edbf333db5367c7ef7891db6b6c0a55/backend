@@ -21,6 +21,12 @@ class AmazonShippingInfo(object):
     VOLUMETRIC_WEIGHT_CONSTANT = 6000
     NONE_PRIME_ITEM_CHARGE = 5.00
 
+    weight_options = {
+        'ounces': value * 0.0283495,
+        'inches': value * 2.54,
+        'pounds': value * 0.453592
+    }
+
     def __init__(self, items):
         self.items = items
 
@@ -52,7 +58,7 @@ class AmazonShippingInfo(object):
             # 2017-02-21T14:11:56Z'
             'Timestamp': "{timestamp}Z".format(timestamp=iso_datetime.split('.')[0]),
         }
-        print query_params
+        # print query_params
 
         query_params_string = urllib.urlencode(query_params).split('&')
         query_params_string.sort()
@@ -66,13 +72,16 @@ class AmazonShippingInfo(object):
             query_params=urllib.urlencode(query_params)
         )
 
-        try:
-            soap_response = requests.get(rest_api_endpoint)
-            soap_response.raise_for_status()
-            batch_items_shipping_info = cls.extract_shipping_information(soap_response.text)
-            return shipping_info + batch_items_shipping_info
-        except requests.HTTPError:
-            raise requests.HTTPError
+        soap_response = requests.get(rest_api_endpoint)
+        batch_items_shipping_info = cls.extract_shipping_information(soap_response.text)
+
+        print soap_response.status_code
+        if soap_response.status_code == 200:
+            shipping_info = shipping_info[0] if isinstance(shipping_info, tuple) else shipping_info
+            # print "{} {}".format(shipping_info, batch_items_shipping_info)
+            return (shipping_info + batch_items_shipping_info, soap_response.status_code,)
+
+        return (soap_response.text, soap_response.status_code,)
 
     @classmethod
     def extract_shipping_information(cls, soap_response):
@@ -84,23 +93,18 @@ class AmazonShippingInfo(object):
         soup = BeautifulSoup(soap_response.encode('utf-8'), 'xml')
         items = soup.find_all('Item')
 
-        def switch(units, value):
-            return {
-                'ounces': value * 0.0283495,
-                'inches': value * 2.54,
-                'pounds': value * 0.453592
-            }.get(units, value)
+        def switch_weight_to_kgs(units, value):
+            return cls.weight_options.get(units, value)
 
         def get_shipping_info(item):
             shipping_info = {}
+            shipping_info['is_prime_item'] = False
             if item.find('PackageDimensions') and len(item.PackageDimensions.contents) > 0:
                 for value in item.PackageDimensions.contents:
                     unit = value['Units'].replace('hundredths-', '')
-                    in_hundreths = 'Units' in value.attrs and 'hundredths' in value[
-                        'Units']
-                    val = float(value.text) / \
-                        100 if in_hundreths else float(value.text)
-                    shipping_info[value.name.lower()] = switch(unit, val)
+                    in_hundreths = 'Units' in value.attrs and 'hundredths' in value['Units']
+                    val = float(value.text) / 100 if in_hundreths else float(value.text)
+                    shipping_info[value.name.lower()] = switch_weight_to_kgs(unit, val)
 
                 # volumetric weight = w * h * l / 6000
                 volumetric_weight = shipping_info['height']
@@ -124,12 +128,12 @@ class AmazonShippingInfo(object):
 
             # check if the item is a prime item
             is_prime_item = item.find('IsEligibleForPrime')
-            if is_prime_item.text != '1':
+            if is_prime_item and is_prime_item.text != '1':
                 shipping_info['shipping_cost'] += cls.NONE_PRIME_ITEM_CHARGE
+                shipping_info['is_prime_item'] = True
 
             shipping_info['asin'] = item.ASIN.text.encode('utf-8')
             shipping_info['title'] = item.ItemAttributes.Title.text.encode('utf-8')
-            shipping_info['is_prime_item'] = True if is_prime_item.text == '1' else False
             return shipping_info
 
         return map(get_shipping_info, items)
