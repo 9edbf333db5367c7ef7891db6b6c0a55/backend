@@ -15,6 +15,7 @@ myserver.*
 coupons.py
 .env.py
 *.yaml
+app.yaml
 nohup.out
 ebay-access-token.py
 
