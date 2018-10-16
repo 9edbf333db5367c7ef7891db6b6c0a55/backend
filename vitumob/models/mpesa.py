@@ -1,5 +1,17 @@
+import time
+from datetime import datetime
 from google.appengine.ext import ndb
 
+
+class MpesaCredentials(ndb.Expando):
+    access_token = ndb.StringProperty()
+    expires_in = ndb.FloatProperty(default=0.00)
+    expiring_time = ndb.FloatProperty(default=0.00)
+    updated_at = ndb.DateTimeProperty(auto_now=True)
+    
+    def _pre_put_hook(self):
+        self.expiring_time = time.mktime(datetime.now().timetuple()) + self.expires_in
+    
 
 class MpesaPayment(ndb.Expando):
     # id = ndb.GenericProperty()
