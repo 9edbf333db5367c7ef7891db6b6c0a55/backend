@@ -1,4 +1,5 @@
-from flask import Flask
+import os
+from flask import Flask, session
 from flask_cors import CORS, cross_origin
 
 from .controllers.user import user
@@ -11,6 +12,7 @@ from .controllers.coupons import coupons
 
 
 app = Flask(__name__)
+app.secret_key = os.urandom(18)
 CORS(app)
 
 resources = [user, orders, cart, payments, mpesa, exchangerates, coupons]
