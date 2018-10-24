@@ -47,10 +47,8 @@ def sync_user_to_hostgator_server(endpoint, user_key, updating=False):
     rest_uri = '{endpoint}/user' if updating is False else '{endpoint}/user/{user_id}'
     resource = rest_uri.format(endpoint=endpoint, user_id=user.key.id())
 
-    if updating is False:
-        response = requests.post(resource, data=payload)
-    else:
-        response = requests.put(resource, data=payload)
+    response = requests.post(resource, data=payload) \
+        if updating is False else requests.put(resource, data=payload)
 
     logging.info("Response Status Code: {status_code}, Response Body: {body}".format(
         status_code=response.status_code,

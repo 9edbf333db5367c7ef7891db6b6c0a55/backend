@@ -21,12 +21,6 @@ class AmazonShippingInfo(object):
     VOLUMETRIC_WEIGHT_CONSTANT = 6000
     NONE_PRIME_ITEM_CHARGE = 5.00
 
-    weight_options = {
-        'ounces': value * 0.0283495,
-        'inches': value * 2.54,
-        'pounds': value * 0.453592
-    }
-
     def __init__(self, items):
         self.items = items
 
@@ -94,7 +88,12 @@ class AmazonShippingInfo(object):
         items = soup.find_all('Item')
 
         def switch_weight_to_kgs(units, value):
-            return cls.weight_options.get(units, value)
+            weight_options = {
+                'ounces': value * 0.0283495,
+                'inches': value * 2.54,
+                'pounds': value * 0.453592
+            }
+            return weight_options.get(units, value)
 
         def get_shipping_info(item):
             shipping_info = {}
