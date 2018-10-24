@@ -2,8 +2,16 @@
 
 Everything, Everyday.
 
+### Starting the developer environment
 
-Starting the developer environment
+##### Initialise the Google Datastore Emulator:
 
-Datastore: gcloud beta emulators datastore start
-App serving: dev_appserver.py --clear_datastore=yes app.yaml
+```bash
+gcloud beta emulators datastore start
+```
+
+##### App serving
+
+```python
+dev_appserver.py --clear_datastore=yes app.yaml
+```

@@ -2,7 +2,7 @@ import os
 import json
 import time
 import logging
-# import json
+import json
 import base64
 from datetime import datetime
 from flask import Blueprint, Response, request
@@ -213,26 +213,6 @@ def payment_completed_webhook():
         new_mpesa_payment.populate(**mpesa_payment)
         new_mpesa_payment.put()
         logging.debug(json.dumps(mpesa_payment))
-
-        # https://vitumob.com/mpesa?
-        # id=59538715&
-        # orig=MPESA&
-        # dest=254706513985&
-        # tstamp=2014-11-11+16%3A55%3A09&
-        # text=FY69MY145+Confirmed.+on+11%2F11%2F14+at+4%3A54+PM+Ksh4%2C516.00+received+from+MARGARET+WANJIRU+254714236724.+Account+Number+16042+New+Utility+balance+is+Ksh3
-        # &customer_id=274&
-        # user=safaricom&
-        # pass=3EdoRm0XHiUPa7x4&
-        # routemethod_id=2&
-        # routemethod_name=HTTP&
-        # mpesa_code=FY69MY145&
-        # mpesa_acc=16042&
-        # mpesa_msisdn=254714236724&
-        # mpesa_trx_date=11%2F11%2F14&
-        # mpesa_trx_time=4%3A54+PM&
-        # mpesa_amt=4516.0&
-        # mpesa_sender=MARGARET+WANJIRU&
-        # business_number=8238238
 
         # forward teh payment to Vitumob hostgator servers
         timestamp_as_string = get_from(payment_metadata, "TransactionDate")
