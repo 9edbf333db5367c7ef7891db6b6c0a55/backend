@@ -30,6 +30,33 @@ endpoint = os.environ.get("HOSTGATOR_SYNC_ENDPOINT")
 requests_toolbelt.adapters.appengine.monkeypatch()
 
 
+def store_items_and_create_order(new_order, usd_to_kes):
+    # store the items 1st, collecting their assigned reference keys from DB
+    items = [Item(**item) for item in new_order['items']]
+    item_keys = ndb.put_multi(items)
+
+    # reference the keys to the items in the order
+    # and store the order
+    new_order['items'] = item_keys
+    order = Order(**new_order)
+
+    hashids = Hashids(salt='https://vitumob.com/orders', min_length=8)
+    order.key = ndb.Key(Order, hashids.encode('VM', str(calendar.timegm(time.gmtime()))))
+    order.put()  # Order.query(Order.key == order_key).get()
+
+    return {
+        'order_id': order.key.id(),
+        'order_hex': order.key.urlsafe(),
+        'total_cost': order.total_cost,
+        'customs': order.customs,
+        'vat': order.vat,
+        'overall_cost': order.overall_cost,
+        'shipping_cost': order.shipping_cost,
+        'markup': order.markup,
+        'exchange_rate': usd_to_kes.rate,
+    }
+
+
 @orders.route('/order', methods=['POST'])
 def new_order_from_extension():
     """Receives a new order and store it"""
@@ -142,33 +169,6 @@ def new_order_from_extension():
 
     payload = json.dumps(response)
     return Response(payload, status=200, mimetype='application/json')
-
-
-def store_items_and_create_order(new_order, usd_to_kes):
-    # store the items 1st, collecting their assigned reference keys from DB
-    items = [Item(**item) for item in new_order['items']]
-    item_keys = ndb.put_multi(items)
-
-    # reference the keys to the items in the order
-    # and store the order
-    new_order['items'] = item_keys
-    order = Order(**new_order)
-
-    hashids = Hashids(salt='https://vitumob.com/orders', min_length=8)
-    order.key = ndb.Key(Order, hashids.encode('VM', str(calendar.timegm(time.gmtime()))))
-    order.put() # Order.query(Order.key == order_key).get()
-
-    return {
-        'order_id': order.key.id(),
-        'order_hex': order.key.urlsafe(),
-        'total_cost': order.total_cost,
-        'customs': order.customs,
-        'vat': order.vat,
-        'overall_cost': order.overall_cost,
-        'shipping_cost': order.shipping_cost,
-        'markup': order.markup,
-        'exchange_rate': usd_to_kes.rate,
-    }
 
 
 def sync_users_order_to_hostgator(endpoint, order_key):
