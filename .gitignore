@@ -8,8 +8,8 @@ lib
 include
 TESTS-bf4a577b8390.json
 *.pyc
-./.Python
-./tags
+.Python
+tags
 .vscode
 myserver.*
 coupons.py
