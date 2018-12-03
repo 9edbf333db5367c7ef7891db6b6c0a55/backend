@@ -1,5 +1,6 @@
 """Recieve mPesa notifications"""
 
+import os
 import json
 from datetime import datetime
 import pusher
@@ -44,7 +45,9 @@ def recieve_mpesa_notification():
         order.mpesa_payment = payment_key
         order.put()
 
-        endpoint = 'https://vitumob-xyz.firebaseio.com'
+        endpoint = 'https://{application_id}.firebaseio.com'.format(
+            application_id=os.environ.get("APPENGINE_SERVER")
+        )
         firebase_resource = "{endpoint}/payments/mpesa/{order_id}.json".format(
             endpoint=endpoint,
             order_id=payment_details['order_id']
