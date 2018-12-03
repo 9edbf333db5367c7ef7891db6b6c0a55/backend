@@ -25,6 +25,7 @@ endpoint = os.environ.get("HOSTGATOR_SYNC_ENDPOINT")
 
 @user.route('/user/<string:user_id>', methods=['GET'])
 def get_user(user_id):
+    """Get the user with the specified `user_id`"""
     user = ndb.Key(User, user_id).get()
     user_payload = user.to_dict()
     user_payload['id'] = user.key.id()
