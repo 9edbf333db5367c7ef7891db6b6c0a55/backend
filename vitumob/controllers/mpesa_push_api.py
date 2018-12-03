@@ -7,12 +7,13 @@ from datetime import datetime
 from flask import Blueprint, Response, request
 
 import requests
-import requests_toolbelt.adapters.appengine
 from requests.auth import HTTPBasicAuth
+import requests_toolbelt.adapters.appengine
 
+from google.appengine.ext import deferred
 from google.appengine.ext import ndb
 
-from ..models.user import User
+# from ..models.user import User
 from ..models.order import Order
 from ..models.mpesa import MpesaDarajaAccessToken, MpesaPayment
 from ..utils import ndb_json
@@ -20,18 +21,23 @@ from ..utils import ndb_json
 requests_toolbelt.adapters.appengine.monkeypatch()
 mpesa_push_api = Blueprint('mpesa_push_api', __name__)
 
+chrome_browser_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"
+
 
 # @mpesa_push_api.route('/payments/mpesa/paybill/register_webhooks', methods=['POST'])
 def set_completed_and_validation_callbacks(access_token):
     """Set Vitumob's confirmation and validation URLs"""
     register_webhooks_endpoint = "https://api.safaricom.co.ke/mpesa/c2b/v1/registerurl"
-    server_endpoint = "https://vitumob-xyz.appspot.com/payments/mpesa"
+    # https://vitumob-prod.appspot.com/
+    vm_payment_callback_resource = "https://{application_id}.appspot.com/payments/mpesa".format(
+        application_id=os.environ.get("APPENGINE_SERVER")
+    )
     vitumob_resource_options = {
-        'endpoint': server_endpoint,
+        "endpoint": vm_payment_callback_resource,
     }
     headers = {
-        "Host": "api.safaricom.co.ke",
-        "Content-Type": "application/json",
+        # "Content-Type": "application/json",
+        "User-Agent": chrome_browser_user_agent,
         "Authorization": "Bearer {access_token}".format(access_token=access_token)
     }
     payload = {
@@ -41,8 +47,10 @@ def set_completed_and_validation_callbacks(access_token):
         "ValidationURL": "{endpoint}/payment/validate".format(**vitumob_resource_options),
     }
     response = requests.post(register_webhooks_endpoint, json=payload, headers=headers)
-    logging.debug(response.text)
-    return response
+    logging.info("Response Status Code: {status_code}, Response Body: {body}".format(
+        status_code=response.status_code,
+        body=response.text
+    ))
 
 
 @mpesa_push_api.route('/payments/mpesa/token', methods=['GET', 'POST'])
@@ -74,20 +82,17 @@ def get_or_update_mpesa_access_token():
         daraja_access_token = response.json()
 
         if response.status_code == 200:
-            cbr = set_completed_and_validation_callbacks(
+            # access_token = MpesaDarajaAccessToken(**response.json())
+            access_token.populate(
+                access_token=daraja_access_token['access_token'],
+                expires_in=int(daraja_access_token['expires_in'])
+            )
+            access_token.put()
+
+            deferred.defer(
+                set_completed_and_validation_callbacks,
                 daraja_access_token['access_token']
             )
-
-            if cbr.status_code == 200:
-                # access_token = MpesaDarajaAccessToken(**response.json())
-                access_token.populate(
-                    access_token=daraja_access_token['access_token'],
-                    expires_in=int(daraja_access_token['expires_in'])
-                )
-                access_token.put()
-                return output
-
-            return Response(cbr.text, status=cbr.status_code, mimetype='application/json')
 
         return output
 
@@ -105,45 +110,55 @@ def simulate_payment_via_mpesa_stk_push():
     access_token = request.headers['Authorization']
     headers = {
         # "Host": "api.safaricom.co.ke",
-        "Content-Type": "application/json",
+        # "Content-Type": "application/json",
+        "User-Agent": chrome_browser_user_agent,
         "Authorization": "Bearer {access_token}".format(access_token=access_token)
     }
-    data = {
+    payload = {
         "ShortCode": os.environ.get("MPESA_PAYBILL_NUMBER"),
         "CommandID": "CustomerPayBillOnline",
-        "Amount": "100",
+        "Amount": "575",
         "Msisdn": "254723001575",
-        "BillRefNumber": "account"
+        "BillRefNumber": "3001575"
     }
-    response = requests.post(endpoint, json=data, headers=headers)
+    response = requests.post(endpoint, json=payload, headers=headers)
     # {
     #     "ConversationID": "AG_20181023_0000410980fe88c4e31d",
     #     "OriginatorCoversationID": "16419-9105748-1",
     #     "ResponseDescription": "Accept the service request successfully."
     # }
+
+    if response.status_code == 200:
+        response_json = response.json()
+        new_mpesa_payment_key = ndb.Key(MpesaPayment, response_json['ConversationID'])
+        new_mpesa_payment = MpesaPayment.get_or_insert(new_mpesa_payment_key.id())
+        new_mpesa_payment.populate(
+            order_id="3001575",
+            user_id="3001575",
+            phone_no="254723001575",
+            merchant_request_id=response_json['OriginatorCoversationID'],
+            amount=575
+        )
+        new_mpesa_payment.put()
+
     return Response(response.text, status=response.status_code, mimetype='application/json')
 
 
 @mpesa_push_api.route('/payments/mpesa/payment/push/<string:order_id>', methods=['POST'])
 def request_payment_via_mpesa_stk_push(order_id):
+    """Used to make an STK PUSH to the user's phone"""
     daraja_stk_push_endpoint = "https://api.safaricom.co.ke/mpesa/stkpush/v1/processrequest"
 
-    order_key = ndb.Key(Order, ndb.Key(urlsafe=order_id).id())
-    order = Order.get_by_id(order_key.id())
-
-    if order is not None:
-        order = order.to_dict()
-        order['id'] = order.key.id()
-
-        user = order.user.get()
-        order['user_phone_number'] = user.phone_number
-    else:
-        order = request.get_json()
+    order_key = ndb.Key(urlsafe=order_id)
+    # order = Order.get_by_id(order_key.string_id())
+    order = order_key.get()
 
     access_token = request.headers['Authorization']
     headers = {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer {access_token}".format(access_token=access_token)
+        # "Host": "api.safaricom.co.ke",
+        # "Content-Type": "application/json",
+        "User-Agent": chrome_browser_user_agent,
+        "Authorization": "Bearer {access_token}".format(access_token=access_token),
     }
 
     timestamp = time.strftime("%Y%m%d%H%M%S")
@@ -153,26 +168,31 @@ def request_payment_via_mpesa_stk_push(order_id):
         timestamp
     ]))
 
+    user = order.user.get()
+    account_reference = str(order_key.integer_id())
+    account_ref_str_len = len(account_reference) - 1
     payload = {
         "BusinessShortCode": os.environ.get("MPESA_PAYBILL_NUMBER"),
         # This is generated by base64 encoding BusinessShortcode, Passkey and Timestamp"
         "Password": base64_encoded_password,
         "Timestamp": timestamp,  # format yyyymmddhhiiss",
         "TransactionType": "CustomerPayBillOnline",
-        # "Amount": int(order_id) / 300,
-        "Amount": order['amount'] if 'amount' in order else order['local_overall_cost'],
+        "Amount": str(int(round(order.local_overall_cost))),
         # "PartyA": '254723001575',
-        "PartyA": order['user_phone_number'],
+        "PartyA": user.phone_number,
         "PartyB": os.environ.get("MPESA_PAYBILL_NUMBER"),
         # "PhoneNumber": '254723001575',
-        "PhoneNumber": order['user_phone_number'],
-        "CallBackURL": "https://vitumob-xyz.appspot.com/payments/mpesa/confirm",
+        "PhoneNumber": user.phone_number,
+        "CallBackURL": "https://{application_id}.appspot.com/payments/mpesa/payment/complete".format(
+            application_id=os.environ.get("APPENGINE_SERVER")
+        ),
         # "AccountReference": str(order_id),
-        "AccountReference": order['id'],
-        "TransactionDesc": "Payment for ORDER: {order_id}".format(order_id=order['id'])
+        "AccountReference": "...{}".format(account_reference[account_ref_str_len/2: account_ref_str_len]),
+        "TransactionDesc": "payment for order"
     }
-    logging.debug(json.dumps(payload))
-    response = requests.post(daraja_stk_push_endpoint, json=payload, headers=headers)z
+    logging.debug("PAYLOAD SENT TO DARAJA: {}".format(json.dumps(payload)))
+
+    response = requests.post(daraja_stk_push_endpoint, json=payload, headers=headers)
     # {
     #     "CheckoutRequestID": "ws_CO_DMZ_105178180_23102018082038007",
     #     "CustomerMessage": "Success. Request accepted for processing",
@@ -182,91 +202,144 @@ def request_payment_via_mpesa_stk_push(order_id):
     # }
 
     if response.status_code == 200:
-        payment_key = ndb.Key(MpesaPayment, response.json['MerchantRequestID'])
-        new_mpesa_payment = MpesaPayment.get_or_insert(payment_key.string_id())
-        new_mpesa_payment.populate(order_id=order['id'], user_id=str(user.key.id()))
+        mpesa_push_api_meta_data = response.json()
+        new_mpesa_payment_key = ndb.Key(MpesaPayment, mpesa_push_api_meta_data['CheckoutRequestID'])
+        new_mpesa_payment = MpesaPayment.get_or_insert(new_mpesa_payment_key.id())
+
+        mpesa_payment_details = {
+            "order_id": order_key.integer_id(),
+            "user_id": user.key.string_id(),
+            "phone_no": user.phone_number,
+            "merchant_request_id": mpesa_push_api_meta_data['MerchantRequestID'],
+            "amount": order.local_overall_cost,
+        }
+        new_mpesa_payment.populate(**mpesa_payment_details)
 
         # save the mpesa payment and add the key to the order
-        if order is not None:
-            order.mpesa_payment = new_mpesa_payment.put()
-            order.put()
-        else:
-            new_mpesa_payment.put()
+        order.mpesa_payment = new_mpesa_payment.put()
 
-    return Response(response.text, status=response.status_code, mimetype='application/json')
+        mpesa_payment_details["payment_id"] = new_mpesa_payment.key.id()
+        mpesa_payment_details["mpesa_response"] = response.text
+
+        payload = json.dumps(mpesa_payment_details)
+        return Response(payload, status=response.status_code, mimetype='application/json')
+
+    logging.debug("PAYMENT request headers: {}".format(response.request.headers))
+    error_payload = json.dumps({
+        "status_code": response.status_code,
+        "daraja_error": response.text,
+        "payload_sent": payload
+    })
+    return Response(error_payload, status=response.status_code, mimetype='application/json')
 
 
 def get_from(data, name_of_property):
     """Helper array filter function"""
-    data = [x['Name'] for x in data if x['Name'] == name_of_property]
+    data = [x['Value'] for x in data if x['Name'] == name_of_property]
     return data[0] if len(data) > 0 else None
 
 
-@mpesa_push_api.route('/payments/mpesa/payment/complete', methods=['POST'])
+def sync_mpesa_payment_details_to_firebase(payment_details):
+    firebase_endpoint = 'https://{application_id}.firebaseio.com'.format(
+        application_id=os.environ.get("APPENGINE_SERVER")
+    )
+    firebase_resource = "{firebase_endpoint}/payments/mpesa/{order_id}.json".format(
+        firebase_endpoint=firebase_endpoint,
+        order_id=payment_details['mpesa_acc']
+    )
+    firebase_response = requests.post(firebase_resource, data=json.dumps(payment_details))
+
+    if firebase_response.status_code == 200:
+        print firebase_response.text
+        logging.debug("MPesa payment details synced to FIREBASE: {}".format(
+            json.dumps(payment_details)
+        ))
+
+
+@mpesa_push_api.route('/payments/mpesa/payment/complete', methods=['GET', 'POST'])
 def payment_completed_webhook():
     """The callback called by the Safaricom Daraja API when the user completes a payment"""
-    payment_info = request.get_json() if request.is_json() else None
+    logging.debug('CALLBACK RESPONSE FROM DARAJA: {}'.format(request.get_json()))
+    logging.debug(request.json)
+
+    payment_info = request.get_json() if request.is_json is True else None
 
     if payment_info is not None:
+
         payment_info = payment_info['Body']['stkCallback']
-        payment_key = ndb.Key(MpesaPayment, payment_info['MerchantRequestID'])
-        new_mpesa_payment = MpesaPayment.get_or_insert(payment_key.string_id())
+        payment_key = ndb.Key(MpesaPayment, payment_info['CheckoutRequestID'])
+        completed_mpesa_payment = MpesaPayment.get_by_id(payment_key.id())
 
-        payment_metadata = payment_info['CallbackMetadata']['Item']
-        logging.debug(json.dumps(request.json))
+        # The user cancelled the payment requested
+        if payment_info['ResultCode'] is 1032:
+            # Expect this response when the user cancels or fails
+            # to complete the requested push request
+            # {
+            #     'Body': {
+            #         'stkCallback': {
+            #             'CheckoutRequestID': 'ws_CO_DMZ_192558880_27112018175237139',
+            #             'ResultCode': 1032,
+            #             'MerchantRequestID': '32412-2959058-2',
+            #             'ResultDesc': '[STK_CB - ]Request cancelled by user'
+            #         }
+            #     }
+            # }
+            pass
 
-        mpesa_payment = {
-            "amount": get_from(payment_metadata, "Amount"),
-            "code": get_from(payment_metadata, "MpesaReceiptNumber"),
-            "phone_no": get_from(payment_metadata, "PhoneNumber"),
-            "merchant_request_id": payment_info['MerchantRequestID'],
-            "checkout_request_id": payment_info['CheckoutRequestID']
-        }
+        if payment_info['ResultCode'] is not 1032 and 'CallbackMetadata' in payment_info:
+            payment_metadata = payment_info['CallbackMetadata']['Item']
+            logging.debug(json.dumps(request.json))
 
-        new_mpesa_payment.populate(**mpesa_payment)
-        new_mpesa_payment.put()
-        logging.debug(json.dumps(mpesa_payment))
+            user_phone_no = get_from(payment_metadata, "PhoneNumber")
+            mpesa_payment = {
+                "amount": get_from(payment_metadata, "Amount"),
+                "phone_no": user_phone_no if type(user_phone_no) is str else str(user_phone_no),
+                "code": get_from(payment_metadata, "MpesaReceiptNumber"),
+                "merchant_request_id": payment_info['MerchantRequestID']
+            }
+            logging.debug(json.dumps(mpesa_payment))
 
-        # forward teh payment to Vitumob hostgator servers
-        timestamp_as_string = get_from(payment_metadata, "TransactionDate")
-        datetime_parsed = datetime.strptime(str(timestamp_as_string), '%Y%m%d%H%M%S')
-        payload = {
-            "id": payment_info['MerchantRequestID'],
-            "orig": "MPESA",
-            "dest": os.environ.get("MPESA_PAYBILL_NUMBER"),
-            "tstamp": datetime_parsed.strftime("%Y-%m-%d+%H:%M:%S"),
-            "text": json.dumps(payment_info),
-            # "customer_id": new_mpesa_payment.user_id,
-            "user": "safaricom",
-            "pass": base64.b64encode(time.strftime("%Y%m%d%H%M%S")),
-            "routemethod_id": 2,
-            "routemethod_name": "HTTP",
-            "mpesa_code": mpesa_payment['code'],
-            "mpesa_acc": new_mpesa_payment.order_id,
-            "mpesa_msisdn": mpesa_payment['phone_no'],
-            "mpesa_trx_date": datetime_parsed.strftime("%d/%m/%Y"),
-            "mpesa_trx_time": datetime_parsed.strftime("%I:%M+%p"),
-            "mpesa_amt": get_from(payment_metadata, "Amount"),
-            "mpesa_sender": mpesa_payment['phone_no'],
-            "business_number": os.environ.get("MPESA_PAYBILL_NUMBER"),
-            # Missing - dest, text, customer_id, pass, mpesa_trx_date, mpesa_trx_time
-        }
-        logging.debug("forwarding mpesa payment info to hostgator: {}".format(json.dumps(payload)))
+            completed_mpesa_payment.populate(**mpesa_payment)
+            completed_mpesa_payment.put()
 
-        firebase_endpoint = 'https://vitumob-xyz.firebaseio.com'
-        firebase_resource = "{firebase_endpoint}/payments/mpesa/{order_id}.json".format(
-            firebase_endpoint=firebase_endpoint,
-            order_id=new_mpesa_payment.order_id
-        )
+            # forward teh payment to Vitumob hostgator servers
+            timestamp_as_string = get_from(payment_metadata, "TransactionDate")
+            datetime_parsed = datetime.strptime(str(timestamp_as_string), '%Y%m%d%H%M%S')
+            payload = {
+                "id": payment_key.id(),
+                "orig": "MPESA",
+                "dest": os.environ.get("MPESA_PAYBILL_NUMBER"),
+                "tstamp": datetime_parsed.strftime("%Y-%m-%d+%H:%M:%S"),
+                "text": json.dumps(payment_info),
+                # "customer_id": completed_mpesa_payment.user_id,
+                "user": completed_mpesa_payment.phone_no \
+                        if completed_mpesa_payment.user_id is None else completed_mpesa_payment.user_id,
+                "pass": base64.b64encode(time.strftime("%Y%m%d%H%M%S")),
+                "routemethod_id": 2,
+                "routemethod_name": "HTTP",
+                "mpesa_code": completed_mpesa_payment.code,
+                "mpesa_acc": completed_mpesa_payment.order_id,
+                "mpesa_msisdn": completed_mpesa_payment.phone_no,
+                "mpesa_trx_date": datetime_parsed.strftime("%d/%m/%Y"),
+                "mpesa_trx_time": datetime_parsed.strftime("%I:%M+%p"),
+                "mpesa_amt": completed_mpesa_payment.amount,
+                "mpesa_sender": completed_mpesa_payment.phone_no,
+                "business_number": os.environ.get("MPESA_PAYBILL_NUMBER"),
+                # Missing - dest, text, customer_id, pass, mpesa_trx_date, mpesa_trx_time
+            }
+            logging.debug("Forwarding MPESA payment info to hostgator: {}".format(json.dumps(payload)))
 
-        response = requests.post(firebase_resource, data=payload)
-        if response.status_code == 200:
-            logging.info("Mpesa payment successful response forwarded to FIREBASE {}".format(
-                json.dumps(payload)
-            ))
+            deferred.defer(sync_mpesa_payment_details_to_firebase, payload)
 
-        vitumob_hostgator_mpesa_callback_url = "https://vitumob.com/mpesa"
-        response = request.get(vitumob_hostgator_mpesa_callback_url, params=payload)
-        return Response(json.dumps(payload), status=response.status_code, mimetype='application/json')
+            response = requests.get("https://vitumob.com/mpesa", params=payload)
+            if response.status_code == 200:
+                return Response(
+                    json.dumps(payload),
+                    status=response.status_code,
+                    mimetype='application/json'
+                )
 
+            return Response(response.text, status=response.status_code, mimetype='application/json')
+
+    logging.debug('There was no JSON response from safaricom: {}'.format(request.data))
     return Response('{}', status=200, mimetype='application/json')
