@@ -70,7 +70,9 @@ def execute_paypal_payment(order_id):
 
     access_token = request.headers['Authorization']
     paypal_payment_resource = 'https://api.sandbox.paypal.com/v1/payments/payment'
-    server_endpoint = 'https://vitumob-xyz.appspot.com/payments/paypal'
+    server_endpoint = 'https://{application_id}.appspot.com/payments/paypal'.format(
+        application_id=os.environ.get("APPENGINE_SERVER")
+    )
     vitumob_resource_options = {
         'endpoint': server_endpoint,
         'order_id': order_id
@@ -156,7 +158,7 @@ def sync_paypal_payment_to_hostgator(endpoint, order_key):
     ))
 
 
-# https://vitumob-xyz.appspot.com/payments/paypal/approved/aghkZXZ-Tm9uZXISCxIFT3JkZXIYgICAgIDg9wkM
+# https://vitumob-prod.appspot.com/payments/paypal/approved/aghkZXZ-Tm9uZXISCxIFT3JkZXIYgICAgIDg9wkM
 # ?paymentId=PAY-5DW7657589732850VLD75OSI&token=EC-0WU786306C7964538&PayerID=R6NVJ4B97J9G2
 @payments.route('/payments/paypal/approved/<string:order_id>', methods=['GET'])
 def user_approved_paypal_payment(order_id):

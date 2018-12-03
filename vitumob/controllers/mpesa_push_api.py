@@ -192,7 +192,7 @@ def request_payment_via_mpesa_stk_push(order_id):
     }
     logging.debug("PAYLOAD SENT TO DARAJA: {}".format(json.dumps(payload)))
 
-    response = requests.post(daraja_stk_push_endpoint, json=payload, headers=headers)
+    # Expect this, for a successful push request
     # {
     #     "CheckoutRequestID": "ws_CO_DMZ_105178180_23102018082038007",
     #     "CustomerMessage": "Success. Request accepted for processing",
@@ -200,6 +200,7 @@ def request_payment_via_mpesa_stk_push(order_id):
     #     "ResponseCode": "0",
     #     "ResponseDescription": "Success. Request accepted for processing"
     # }
+    response = requests.post(daraja_stk_push_endpoint, json=payload, headers=headers)
 
     if response.status_code == 200:
         mpesa_push_api_meta_data = response.json()
