@@ -207,6 +207,19 @@ def request_for_payment_via_daraja_stk_push(access_token, order_meta_data):
     return response, error_payload
 
 
+@mpesa_push_api.route('/payments/mpesa/payment/push/request', methods=['POST'])
+def mpesa_stk_push_request_from_hostgator():
+    if 'Authorization' in request.headers:
+        access_token = request.headers['Authorization']
+        order = json.loads(request.json['order'])
+        response, error_payload = request_for_payment_via_daraja_stk_push(access_token, order)
+        payload = response.text if error_payload is None else error_payload
+        return Response(payload, status=response.status_code, mimetype='application/json')
+
+    payload = {'error': 'Access token not provided'}
+    return Response(payload, status=401, mimetype='application/json')
+
+
 @mpesa_push_api.route('/payments/mpesa/payment/push/<string:order_id>', methods=['POST'])
 def request_payment_via_mpesa_stk_push(order_id):
     """Used to make an STK PUSH to the user's phone"""
