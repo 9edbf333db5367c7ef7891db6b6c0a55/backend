@@ -177,8 +177,8 @@ def request_for_payment_via_daraja_stk_push(access_token, order_meta_data):
         "PhoneNumber": order_meta_data['user_phone_number'],
         "CallBackURL": callback_url.format(application_id=os.environ.get("APPENGINE_SERVER")),
         # "AccountReference": str(order_id),
-        "AccountReference": order_meta_data['account_reference'],
-        "TransactionDesc": "Payment for Order no. {}".format(order_meta_data['account_reference'])
+        "AccountReference": order_meta_data['order_id'],
+        "TransactionDesc": "Payment for Order no. {}".format(order_meta_data['order_id'])
     }
 
     session = requests.Session()
@@ -199,9 +199,15 @@ def request_for_payment_via_daraja_stk_push(access_token, order_meta_data):
     # if hasattr(response, 'raise_for_status') and callable(response.raise_for_status):
         # setattr(response, 'content', response.text)
 
+    response_json = None
+    try:
+        response_json = json.loads(response.text)
+    except ValueError:
+        pass
+
     error_payload = json.dumps({
         "status_code": response.status_code,
-        "daraja_error": response.text,
+        "daraja_error": response_json if response_json is not None else response.text,
         "order_meta_data": order_meta_data
     })
     return response, error_payload
@@ -217,7 +223,7 @@ def mpesa_stk_push_request_from_hostgator():
         return Response(payload, status=response.status_code, mimetype='application/json')
 
     payload = {'error': 'Access token not provided'}
-    return Response(payload, status=401, mimetype='application/json')
+    return Response(json.dumps(payload), status=401, mimetype='application/json')
 
 
 @mpesa_push_api.route('/payments/mpesa/payment/push/<string:order_id>', methods=['POST'])
@@ -238,7 +244,7 @@ def request_payment_via_mpesa_stk_push(order_id):
     order_meta_data = {
         "amount": str(int(round(order.local_overall_cost))),
         "user_phone_number": user.phone_number,
-        "account_reference": truncated_account_reference,
+        "order_id": truncated_account_reference,
     }
     response, error_payload = request_for_payment_via_daraja_stk_push(access_token, order_meta_data)
 
@@ -311,7 +317,6 @@ def payment_completed_webhook():
     # logging.debug(request.json)
 
     if payment_info is not None:
-
         payment_info = payment_info['Body']['stkCallback']
         payment_key = ndb.Key(MpesaPayment, payment_info['CheckoutRequestID'])
         completed_mpesa_payment = MpesaPayment.get_by_id(payment_key.id())
@@ -373,19 +378,19 @@ def payment_completed_webhook():
                 "business_number": os.environ.get("MPESA_PAYBILL_NUMBER"),
                 # Missing - dest, text, customer_id, pass, mpesa_trx_date, mpesa_trx_time
             }
-            logging.debug("Hostagator to recieve this: {}".format(json.dumps(payload)))
+            logging.debug("Hostagator sync payload: {}".format(json.dumps(payload)))
 
             deferred.defer(sync_mpesa_payment_details_to_firebase, payload)
 
             response = requests.get("https://vitumob.com/mpesa", params=payload)
             if response.status_code == 200:
                 return Response(
-                    json.dumps(payload),
+                    response.text,
                     status=response.status_code,
                     mimetype='application/json'
                 )
 
             return Response(response.text, status=response.status_code, mimetype='application/json')
 
-    logging.debug('JSON response from Daraja: {}'.format(request.data))
+    logging.debug('Response from Daraja: {}'.format(request.text))
     return Response('{}', status=200, mimetype='application/json')
