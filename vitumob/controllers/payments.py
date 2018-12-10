@@ -158,7 +158,7 @@ def sync_paypal_payment_to_hostgator(endpoint, order_key):
     ))
 
 
-# https://vitumob-prod.appspot.com/payments/paypal/approved/aghkZXZ-Tm9uZXISCxIFT3JkZXIYgICAgIDg9wkM
+# https://vitumob.xyz/payments/paypal/approved/aghkZXZ-Tm9uZXISCxIFT3JkZXIYgICAgIDg9wkM
 # ?paymentId=PAY-5DW7657589732850VLD75OSI&token=EC-0WU786306C7964538&PayerID=R6NVJ4B97J9G2
 @payments.route('/payments/paypal/approved/<string:order_id>', methods=['GET'])
 def user_approved_paypal_payment(order_id):
