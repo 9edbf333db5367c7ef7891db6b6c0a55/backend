@@ -19,6 +19,7 @@ from google.appengine.ext import ndb
 # from ..models.order import Order
 from ..models.mpesa import MpesaDarajaAccessToken, MpesaPayment
 from ..utils import ndb_json
+from ..helpers.dictutil import DictUtil
 
 requests_toolbelt.adapters.appengine.monkeypatch()
 mpesa_push_api = Blueprint('mpesa_push_api', __name__)
@@ -286,12 +287,6 @@ def request_payment_via_mpesa_stk_push(order_id):
     return Response(error_payload, status=response.status_code, mimetype='application/json')
 
 
-def get_from(data, name_of_property):
-    """Helper array filter function"""
-    data = [x['Value'] for x in data if x['Name'] == name_of_property]
-    return data[0] if len(data) > 0 else None
-
-
 def sync_mpesa_payment_details_to_firebase(payment_details):
     firebase_endpoint = 'https://{application_id}.firebaseio.com'.format(
         application_id=os.environ.get("APPENGINE_SERVER")
@@ -341,11 +336,13 @@ def payment_completed_webhook():
             payment_metadata = payment_info['CallbackMetadata']['Item']
             logging.debug(json.dumps(request.json))
 
-            user_phone_no = get_from(payment_metadata, "PhoneNumber")
+            _dict = DictUtil(payment_metadata)
+
+            user_phone_no = _dict.get("PhoneNumber")
             mpesa_payment = {
-                "amount": get_from(payment_metadata, "Amount"),
+                "amount": _dict.get("Amount"),
                 "phone_no": user_phone_no if type(user_phone_no) is str else str(user_phone_no),
-                "code": get_from(payment_metadata, "MpesaReceiptNumber"),
+                "code": _dict.get("MpesaReceiptNumber"),
             }
             logging.debug(json.dumps(mpesa_payment))
 
@@ -353,7 +350,7 @@ def payment_completed_webhook():
             completed_mpesa_payment.put()
 
             # forward teh payment to Vitumob hostgator servers
-            timestamp_as_string = get_from(payment_metadata, "TransactionDate")
+            timestamp_as_string = _dict.get("TransactionDate")
             datetime_parsed = datetime.strptime(str(timestamp_as_string), '%Y%m%d%H%M%S')
             payload = {
                 "id": payment_key.id(),

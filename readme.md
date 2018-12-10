@@ -15,3 +15,7 @@ gcloud beta emulators datastore start
 ```python
 dev_appserver.py --clear_datastore=yes app.yaml
 ```
+
+##### How to use the MPESA DARAJA API
+
+https://gist.github.com/kn9ts/b5913cd651d39df0a584d5e93951ea4f
