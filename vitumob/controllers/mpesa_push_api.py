@@ -3,7 +3,7 @@ import json
 import time
 import logging
 import base64
-import urllib
+# import urllib
 from datetime import datetime
 from flask import Blueprint, Response, request
 
@@ -11,19 +11,20 @@ import requests
 from requests.auth import HTTPBasicAuth
 import requests_toolbelt.adapters.appengine
 
-from google.appengine.api import urlfetch
+# from google.appengine.api import urlfetch
 from google.appengine.ext import deferred
 from google.appengine.ext import ndb
 
 # from ..models.user import User
-from ..models.order import Order
+# from ..models.order import Order
 from ..models.mpesa import MpesaDarajaAccessToken, MpesaPayment
 from ..utils import ndb_json
 
 requests_toolbelt.adapters.appengine.monkeypatch()
 mpesa_push_api = Blueprint('mpesa_push_api', __name__)
 
-chrome_browser_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"
+chrome_browser_user_agent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_1) AppleWebKit/537.36 \
+(KHTML, like Gecko) Chrome/70.0.3538.110 Safari/537.36"
 
 
 # @mpesa_push_api.route('/payments/mpesa/paybill/register_webhooks', methods=['POST'])
@@ -157,7 +158,7 @@ def request_payment_via_mpesa_stk_push(order_id):
     access_token = request.headers['Authorization']
     headers = {
         # "Host": "api.safaricom.co.ke",
-        "Content-Type": "application/json",
+        # "Content-Type": "application/json",
         "User-Agent": chrome_browser_user_agent,
         "Authorization": "Bearer {access_token}".format(access_token=access_token),
     }
@@ -188,7 +189,9 @@ def request_payment_via_mpesa_stk_push(order_id):
             application_id=os.environ.get("APPENGINE_SERVER")
         ),
         # "AccountReference": str(order_id),
-        "AccountReference": "...{}".format(account_reference[account_ref_str_len/2: account_ref_str_len]),
+        "AccountReference": "...{}".format(
+            account_reference[account_ref_str_len / 2: account_ref_str_len]
+        ),
         "TransactionDesc": "payment for order"
     }
 
@@ -201,13 +204,22 @@ def request_payment_via_mpesa_stk_push(order_id):
     #     "ResponseDescription": "Success. Request accepted for processing"
     # }
 
-    response = urlfetch.fetch(
-        method=urlfetch.POST,
-        url=daraja_stk_push_endpoint,
-        # payload=urllib.urlencode(payload),
-        payload=json.dumps(payload),
-        headers=headers
-    )
+    # Current working option to make the mpesa stk push request
+    # response = urlfetch.fetch(
+    #     method=urlfetch.POST,
+    #     url=daraja_stk_push_endpoint,
+    #     # payload=urllib.urlencode(payload),
+    #     payload=json.dumps(payload),
+    #     headers=headers
+    # )
+
+    session = requests.Session()
+    req = requests.Request('POST', daraja_stk_push_endpoint, headers=headers)
+    preparedreq = req.prepare()
+    # preparedreq = session.prepare_request(req)
+    preparedreq.body = json.dumps(payload)
+    preparedreq.headers['Content-Type'] = 'application/json'
+    response = session.send(preparedreq)
     # response = requests.post(daraja_stk_push_endpoint, data=json.dumps(payload), headers=headers)
     # response.raise_for_status()
 
@@ -235,9 +247,16 @@ def request_payment_via_mpesa_stk_push(order_id):
         order.mpesa_payment = new_mpesa_payment.put()
         order.put()
 
+        map(lambda attr: mpesa_push_api_meta_data.pop(attr), [
+            'ResponseDescription',
+            'CustomerMessage',
+            # 'CheckoutRequestID'
+        ])
 
-        mpesa_payment_details["checkout_request_id"] = mpesa_push_api_meta_data['CheckoutRequestID']
+        # This is still the 'CheckoutRequestID'
         mpesa_payment_details["payment_id"] = new_mpesa_payment.key.id()
+        mpesa_payment_details["daraja_response"] = mpesa_push_api_meta_data
+        mpesa_payment_details.pop('merchant_request_id')
 
         payload = json.dumps(mpesa_payment_details)
         return Response(payload, status=response.status_code, mimetype='application/json')
@@ -286,7 +305,6 @@ def sync_mpesa_payment_details_to_firebase(payment_details):
 @mpesa_push_api.route('/payments/mpesa/payment/complete', methods=['GET', 'POST'])
 def payment_completed_webhook():
     """The callback called by the Safaricom Daraja API when the user completes a payment"""
-
     payment_info = request.get_json() if request.is_json is True else None
     logging.debug('CALLBACK RESPONSE FROM DARAJA: {}'.format(payment_info))
     # logging.debug(request.json)
@@ -339,7 +357,8 @@ def payment_completed_webhook():
                 "text": json.dumps(payment_info),
                 # "customer_id": completed_mpesa_payment.user_id,
                 "user": completed_mpesa_payment.phone_no \
-                        if completed_mpesa_payment.user_id is None else completed_mpesa_payment.user_id,
+                        if completed_mpesa_payment.user_id is None\
+                        else completed_mpesa_payment.user_id,
                 "pass": base64.b64encode(time.strftime("%Y%m%d%H%M%S")),
                 "routemethod_id": 2,
                 "routemethod_name": "HTTP",
@@ -353,7 +372,7 @@ def payment_completed_webhook():
                 "business_number": os.environ.get("MPESA_PAYBILL_NUMBER"),
                 # Missing - dest, text, customer_id, pass, mpesa_trx_date, mpesa_trx_time
             }
-            logging.debug("Forwarding MPESA payment info to hostgator: {}".format(json.dumps(payload)))
+            logging.debug("Hostagator to recieve this: {}".format(json.dumps(payload)))
 
             deferred.defer(sync_mpesa_payment_details_to_firebase, payload)
 
