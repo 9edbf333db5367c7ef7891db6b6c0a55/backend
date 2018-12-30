@@ -22,10 +22,10 @@ from ..utils import ndb_json
 
 
 requests_toolbelt.adapters.appengine.monkeypatch()
-payments = Blueprint('payments', __name__)
+paypal_payments = Blueprint('paypal_payments', __name__)
 
 
-@payments.route('/payments/paypal/token', methods=['GET'])
+@paypal_payments.route('/payments/paypal/token', methods=['GET'])
 def create_paypal_payment():
     """Get or update the PayPal token we'll use in creating and executing payments"""
     endpoint = 'https://api.sandbox.paypal.com/v1/oauth2/token'
@@ -59,7 +59,7 @@ def create_paypal_payment():
     return Response(payload, status=200, mimetype='application/json')
 
 
-@payments.route('/payments/paypal/create/<string:order_id>', methods=['POST'])
+@paypal_payments.route('/payments/paypal/create/<string:order_id>', methods=['POST'])
 def execute_paypal_payment(order_id):
     """
     Initialise a payment, returning an approval URL to redirect or
@@ -160,7 +160,7 @@ def sync_paypal_payment_to_hostgator(endpoint, order_key):
 
 # https://vitumob.xyz/payments/paypal/approved/aghkZXZ-Tm9uZXISCxIFT3JkZXIYgICAgIDg9wkM
 # ?paymentId=PAY-5DW7657589732850VLD75OSI&token=EC-0WU786306C7964538&PayerID=R6NVJ4B97J9G2
-@payments.route('/payments/paypal/approved/<string:order_id>', methods=['GET'])
+@paypal_payments.route('/payments/paypal/approved/<string:order_id>', methods=['GET'])
 def user_approved_paypal_payment(order_id):
     """
     If the user approves the payment, the user is redirected to
@@ -229,7 +229,7 @@ def user_approved_paypal_payment(order_id):
     return Response(payload, status=401, mimetype='application/json')
 
 
-@payments.route('/payments/paypal/cancelled/<string:order_id>', methods=['GET'])
+@paypal_payments.route('/payments/paypal/cancelled/<string:order_id>', methods=['GET'])
 def user_cancelled_paypal_payment(order_id):
     """If the user cancels or does not make the payment, the user will be redirected to this URL"""
     payload = json.dumps({'status': 403, 'message': 'User Cancelled Payment!'})

@@ -15,17 +15,16 @@ class MpesaDarajaAccessToken(ndb.Expando):
 
 
 class MpesaPayment(ndb.Expando):
-    # id = ndb.GenericProperty()
+    # id = ndb.StringProperty(default='') # => checkout_request_id
     order_id = ndb.StringProperty(default='', required=True)
-    user_id = ndb.StringProperty(default='', required=True)
     code = ndb.StringProperty(default='', required=True)
-    phone_no = ndb.StringProperty(default='', required=True)
-    # checkout_request_id = ndb.StringProperty(default='')
+    amount = ndb.FloatProperty(default=0.00, required=True)
     merchant_request_id = ndb.StringProperty(default='')
-    sender = ndb.StringProperty(default='')
-    # recoded_trx_date_time = ndb.DateTimeProperty()
-    amount = ndb.FloatProperty(default=0.00)
+    user_id = ndb.StringProperty(default='', required=True)
+    user_name = ndb.StringProperty(default='')
+    phone_no = ndb.StringProperty(default='', required=True)
     # transaction_date = ndb.IntegerProperty(default=0)
+    # recoded_trx_date_time = ndb.DateTimeProperty()
     created_at = ndb.DateTimeProperty(auto_now_add=True)
     updated_at = ndb.DateTimeProperty(auto_now=True)
 
