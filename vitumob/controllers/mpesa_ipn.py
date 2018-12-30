@@ -27,7 +27,7 @@ def recieve_mpesa_notification():
         'code': params['mpesa_code'],
         'order_id': params['mpesa_acc'],
         'phone_no': params['mpesa_msisdn'],
-        'sender': params['mpesa_sender'],
+        'user_name': params['mpesa_sender'],
         'amount': float(params['mpesa_amt']),
         'message': params['text'],
         'timestamp': datetime.strptime(params['tstamp'], "%Y-%m-%d %H:%M:%S")
