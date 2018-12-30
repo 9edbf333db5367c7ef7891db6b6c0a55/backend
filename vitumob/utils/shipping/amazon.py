@@ -31,7 +31,7 @@ class AmazonShippingInfo(object):
         loops = 1 if loops < 1 else loops + 1
 
         slices = []
-        for loop in range(int(loops)):
+        for _ in range(int(loops)):
             slices.append(self.items[start:slice_here])
             start += 10
             slice_here += 10
@@ -69,16 +69,17 @@ class AmazonShippingInfo(object):
         soap_response = requests.get(rest_api_endpoint)
         batch_items_shipping_info = cls.extract_shipping_information(soap_response.text)
 
-        print soap_response.status_code
         if soap_response.status_code == 200:
             shipping_info = shipping_info[0] if isinstance(shipping_info, tuple) else shipping_info
-            # print "{} {}".format(shipping_info, batch_items_shipping_info)
+            # logging.info("{} {}".format(shipping_info, batch_items_shipping_info))
             return (shipping_info + batch_items_shipping_info, soap_response.status_code,)
 
         return (soap_response.text, soap_response.status_code,)
 
+
     @classmethod
     def extract_shipping_information(cls, soap_response):
+        # TODO: Use GC Storage to be able to store these files
         # date = datetime.datetime.now().isoformat()
         # xml_file = open("amazon-{}Z.xml".format(date.split('.')[0]), "w")
         # xml_file.write(soap_response.encode('utf-8'))
@@ -86,6 +87,12 @@ class AmazonShippingInfo(object):
 
         soup = BeautifulSoup(soap_response.encode('utf-8'), 'xml')
         items = soup.find_all('Item')
+        return map(cls.extract_item_shipping_info, items)
+
+    @classmethod
+    def extract_item_shipping_info(cls, item):
+        shipping_info = {}
+        shipping_info['is_prime_item'] = False
 
         def switch_weight_to_kgs(units, value):
             weight_options = {
@@ -95,44 +102,40 @@ class AmazonShippingInfo(object):
             }
             return weight_options.get(units, value)
 
-        def get_shipping_info(item):
-            shipping_info = {}
-            shipping_info['is_prime_item'] = False
-            if item.find('PackageDimensions') and len(item.PackageDimensions.contents) > 0:
-                for value in item.PackageDimensions.contents:
-                    unit = value['Units'].replace('hundredths-', '')
-                    in_hundreths = 'Units' in value.attrs and 'hundredths' in value['Units']
-                    val = float(value.text) / 100 if in_hundreths else float(value.text)
-                    shipping_info[value.name.lower()] = switch_weight_to_kgs(unit, val)
+        if item.find('PackageDimensions') and len(item.PackageDimensions.contents) > 0:
+            for value in item.PackageDimensions.contents:
+                unit = value['Units'].replace('hundredths-', '')
+                in_hundreths = 'Units' in value.attrs and 'hundredths' in value['Units']
+                val = float(value.text) / \
+                    100 if in_hundreths else float(value.text)
+                shipping_info[value.name.lower()] = switch_weight_to_kgs(unit, val)
 
-                # volumetric weight = w * h * l / 6000
-                volumetric_weight = shipping_info['height']
-                volumetric_weight *= shipping_info['width']
-                volumetric_weight *= shipping_info['length']
-                volumetric_weight /= cls.VOLUMETRIC_WEIGHT_CONSTANT
+            # volumetric weight = w * h * l / 6000
+            volumetric_weight = shipping_info['height']
+            volumetric_weight *= shipping_info['width']
+            volumetric_weight *= shipping_info['length']
+            volumetric_weight /= cls.VOLUMETRIC_WEIGHT_CONSTANT
 
-                # select the greater weight of the two
-                if volumetric_weight > shipping_info['weight']:
-                    shipping_info['shipping_cost'] = volumetric_weight
-                else:
-                    shipping_info['shipping_cost'] = shipping_info['weight']
-
-                # with the greater weight selected
-                # get the total shipping cost of the weight
-                shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
+            # select the greater weight of the two
+            if volumetric_weight > shipping_info['weight']:
+                shipping_info['shipping_cost'] = volumetric_weight
             else:
-                # default weight: 1kg == 2.20462 pounds
-                shipping_info['shipping_cost'] = cls.MINIMUM_WEIGHT
-                shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
+                shipping_info['shipping_cost'] = shipping_info['weight']
 
-            # check if the item is a prime item
-            is_prime_item = item.find('IsEligibleForPrime')
-            if is_prime_item and is_prime_item.text != '1':
-                shipping_info['shipping_cost'] += cls.NONE_PRIME_ITEM_CHARGE
-                shipping_info['is_prime_item'] = True
+            # with the greater weight selected
+            # get the total shipping cost of the weight
+            shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
+        else:
+            # default weight: 1kg == 2.20462 pounds
+            shipping_info['shipping_cost'] = cls.MINIMUM_WEIGHT
+            shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
 
-            shipping_info['asin'] = item.ASIN.text.encode('utf-8')
-            shipping_info['title'] = item.ItemAttributes.Title.text.encode('utf-8')
-            return shipping_info
+        # check if the item is a prime item
+        is_prime_item = item.find('IsEligibleForPrime')
+        if is_prime_item and is_prime_item.text != '1':
+            shipping_info['shipping_cost'] += cls.NONE_PRIME_ITEM_CHARGE
+            shipping_info['is_prime_item'] = True
 
-        return map(get_shipping_info, items)
+        shipping_info['asin'] = item.ASIN.text.encode('utf-8')
+        shipping_info['title'] = item.ItemAttributes.Title.text.encode('utf-8')
+        return shipping_info
