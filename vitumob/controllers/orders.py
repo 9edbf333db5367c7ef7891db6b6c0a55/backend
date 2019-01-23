@@ -6,6 +6,7 @@ import time
 import calendar
 import logging
 
+from functools import reduce
 from datetime import datetime
 from flask import Blueprint, Response, request
 # from google.appengine.api import taskqueue
@@ -21,7 +22,9 @@ from ..models.item import Item, ShippingInfo
 from ..models.order import Order
 from ..models.user import User
 from ..models.rates import Rates
-from ..utils.shipping.amazon import AmazonShippingInfo
+# Deprecated
+# from ..utils.shipping.amazon import AmazonShippingInfo
+from ..utils.shipping.sellers_central_amazon import ItemShippingInfo
 from ..utils import ndb_json
 
 
@@ -35,14 +38,14 @@ def store_items_and_create_order(new_order, usd_to_kes):
     items = [Item(**item) for item in new_order['items']]
     item_keys = ndb.put_multi(items)
 
-    # reference the keys to the items in the order
-    # and store the order
+    # reference the keys to the items in the order and store the order
     new_order['items'] = item_keys
-    order = Order(**new_order)
 
     hashids = Hashids(salt='https://vitumob.com/orders', min_length=8)
-    order.key = ndb.Key(Order, hashids.encode('VM', str(calendar.timegm(time.gmtime()))))
-    order.put()  # Order.query(Order.key == order_key).get()
+    new_order_key = ndb.Key(Order, hashids.encode('VM', str(calendar.timegm(time.gmtime()))))
+    order = Order.get_or_insert(new_order_key.id())
+    order.populate(**new_order)
+    order.put() # Order.query(Order.key == order_key).get()
 
     return {
         'order_id': order.key.id(),
@@ -71,18 +74,25 @@ def new_order_from_extension():
 
     # if order is from amazon, get the shipping information of each item
     if 'amazon' in new_order['merchant']:
-        amazon = AmazonShippingInfo(new_order['items'])
-        response, status_code = amazon.get_shipping_info()
+        amazon_order_items = ItemShippingInfo(new_order['items'])
+        response, status_code = amazon_order_items.retrieve_shipping_info()
         # print response
 
+<<<<<<< HEAD
         if len(response) == 0 and status_code != 200:
             return Response(json.dumps({'error': response}), status=504, mimetype='application/json')
+=======
+        if status_code not in [200, 201]:
+            payload = json.dumps({'error': response})
+            return Response(payload, status=status_code, mimetype='application/json')
+>>>>>>> A lot of updates :)
 
         items_with_shipping_info = response
-        # print items_with_shipping_info
+        logging.info(items_with_shipping_info)
+
         for index, item in enumerate(new_order['items']):
-            shipping_info = [info for info in items_with_shipping_info
-                                if 'asin' in info and info['asin'] == item['id']]
+            shipping_info = [shpn_info for shpn_info in items_with_shipping_info
+                                if 'asin' in shpn_info and shpn_info['asin'] == item['id']]
 
             if len(shipping_info) == 0:
                 # print "No shipping information was captured for %s" % item['name']
@@ -93,7 +103,6 @@ def new_order_from_extension():
                 new_order['items'][index] = item
                 continue
 
-            # print shipping_info
             shipping_info = shipping_info[0]
             shipping_info['local_cost'] = shipping_info['shipping_cost'] * usd_to_kes.rate
 
@@ -138,8 +147,7 @@ def new_order_from_extension():
     new_order['total_cost'] = round(new_order['total_cost'], 2)
     new_order['shipping_cost'] = round(new_order['shipping_cost'], 2)
 
-    # If the total cost of items is more than
-    # $800 shipping cost is completely waved
+    # If the total cost of items is more than $800 shipping cost is completely waved
     if new_order['total_cost'] >= 800:
         new_order['waived_shipping_cost'] = new_order['shipping_cost']
         new_order['shipping_cost'] = 0.00
@@ -157,15 +165,14 @@ def new_order_from_extension():
     new_order['local_overall_cost'] = new_order['overall_cost'] * new_order['exchange_rate']
     new_order['markup'] = round((new_order['overall_cost'] / new_order['total_cost']) - 1, 2)
 
-    def remove_shipping_info(item):
-        item.pop('shipping_info', None)
-        return item
-
     response = new_order
     if 'create_order' in request.json['order']:
         response = store_items_and_create_order(new_order, usd_to_kes)
-    else:
-        response['items'] = map(remove_shipping_info, response['items'])
+        payload = json.dumps(response)
+        return Response(payload, status=200, mimetype='application/json')
+
+    # remove shipping_info from the item dictionary
+    response['items'] = map(lambda item: (item.pop('shipping_info', None) is True) or item, response['items'])
 
     payload = json.dumps(response)
     return Response(payload, status=200, mimetype='application/json')

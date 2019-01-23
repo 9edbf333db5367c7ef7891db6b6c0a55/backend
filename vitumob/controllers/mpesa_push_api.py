@@ -17,6 +17,10 @@ from google.appengine.ext import ndb
 from ..models.order import Order
 from ..models.mpesa import MpesaDarajaAccessToken, MpesaPayment
 from ..utils import ndb_json
+<<<<<<< HEAD
+=======
+from ..utils.dictutil import DictUtil
+>>>>>>> A lot of updates :)
 
 requests_toolbelt.adapters.appengine.monkeypatch()
 mpesa_push_api = Blueprint('mpesa_push_api', __name__)
@@ -51,6 +55,46 @@ def set_completed_and_validation_callbacks(access_token):
         status_code=response.status_code,
         body=response.text
     ))
+<<<<<<< HEAD
+=======
+    return Response(response.text, status=response.status_code, mimetype='application/json')
+
+
+@mpesa_push_api.route('/payments/mpesa/paybill/register_webhooks', methods=['GET', 'POST'])
+def set_completed_and_validation_callbacks_endpoint():
+    if 'Authorization' in request.headers and request.headers['Authorization'] is not None:
+        access_token = request.headers['Authorization']
+        return set_completed_and_validation_callbacks(access_token)
+
+    payload = json.dumps({"error": "Not authorized to make this request"})
+    return Response(payload, status=401, mimetype='application/json')
+
+
+@mpesa_push_api.route('/payments/mpesa/payment/validate', methods=['GET', 'POST'])
+def payment_validation_webhook():
+    """NOTE: For those who have enabled External Validation"""
+    # {
+    #     "TransactionType": "",
+    #     "TransID": "LHG31AA5TX",
+    #     "TransTime": "20170816190243",
+    #     "TransAmount": "200.00",
+    #     "BusinessShortCode": "601426",
+    #     "BillRefNumber": "account",
+    #     "InvoiceNumber": "",
+    #     "OrgAccountBalance": "",
+    #     "ThirdPartyTransID": "",
+    #     "MSISDN": "254708374149",
+    #     "FirstName": "John",
+    #     "MiddleName": "",
+    #     "LastName": "Doe"
+    # }
+    # mpesa_payment_to_validate = request.get_json()
+
+    # if you reject to validate the payment, send back the following response
+    # { "ResultCode": 1, "ResultDesc": "Rejected" }
+    payload = json.dumps({"ResultCode": 0, "ResultDesc": "Accepted"})
+    return Response(payload, status=200, mimetype='application/json')
+>>>>>>> A lot of updates :)
 
 
 @mpesa_push_api.route('/payments/mpesa/token', methods=['GET', 'POST'])
@@ -187,8 +231,97 @@ def request_payment_via_mpesa_stk_push(order_id):
             application_id=os.environ.get("APPENGINE_SERVER")
         ),
         # "AccountReference": str(order_id),
+<<<<<<< HEAD
         "AccountReference": "...{}".format(account_reference[account_ref_str_len/2: account_ref_str_len]),
         "TransactionDesc": "payment for order"
+=======
+        "AccountReference": order_meta_data['order_id'],
+        "TransactionDesc": "Payment for Order no. {}".format(order_meta_data['order_id'])
+    }
+
+    session = requests.Session()
+    req = requests.Request('POST', daraja_stk_push_endpoint, headers=headers)
+    preparedreq = req.prepare()
+    # preparedreq = session.prepare_request(req)
+    preparedreq.body = json.dumps(payload)
+    preparedreq.headers['Content-Type'] = 'application/json'
+    response = session.send(preparedreq)
+
+    logging.debug("PAYMENT payload: {}".format(json.dumps(payload)))
+    logging.debug("PAYMENT request headers: {}".format(response.request.headers))
+
+    if response.status_code is 200:
+        return response, None
+
+    # Back proof the response object, incase we decide to switch back to requests lib
+    # if hasattr(response, 'raise_for_status') and callable(response.raise_for_status):
+        # setattr(response, 'content', response.text)
+
+    response_json = None
+    try:
+        response_json = json.loads(response.text)
+    except ValueError:
+        pass
+
+    error_payload = json.dumps({
+        "status_code": response.status_code,
+        "daraja_error": response_json if response_json is not None else response.text,
+        "order_meta_data": order_meta_data
+    })
+    return response, error_payload
+
+
+@mpesa_push_api.route('/payments/mpesa/payment/push/request', methods=['POST'])
+def mpesa_stk_push_request_from_hostgator():
+    if 'Authorization' in request.headers:
+        access_token = request.headers['Authorization']
+        order = request.json['order']
+        response, error_payload = request_for_payment_via_daraja_stk_push(access_token, order)
+
+        if response.status_code is 200 and error_payload is None:
+            mpesa_payment = response.json()
+            new_mpesa_payment_key = ndb.Key(MpesaPayment, mpesa_payment['CheckoutRequestID'])
+            new_mpesa_payment = MpesaPayment.get_or_insert(new_mpesa_payment_key.id())
+
+            amount = order['amount'] if type(order['amount']) is int\
+                else int(round(order['amount']))
+
+            payment_details = {
+                "order_id": order['order_id'],
+                "phone_no": order['user_phone_number'],
+                "amount": amount,
+                "merchant_request_id": mpesa_payment['MerchantRequestID']
+            }
+            new_mpesa_payment.populate(**payment_details)
+            new_mpesa_payment.put()
+
+        payload = response.text if error_payload is None else error_payload
+        return Response(payload, status=response.status_code, mimetype='application/json')
+
+    payload = json.dumps({'error': 'Access token not provided'})
+    return Response(payload, status=401, mimetype='application/json')
+
+
+@mpesa_push_api.route('/payments/mpesa/payment/push/<string:order_id>', methods=['POST'])
+def request_payment_via_mpesa_stk_push(order_id):
+    """Used to make an STK PUSH to the user's phone"""
+    order_key = ndb.Key(urlsafe=order_id)
+    # order = Order.get_by_id(order_key.string_id())
+    order = order_key.get()
+    user = order.user.get()
+
+    account_reference = str(order_key.integer_id())
+    account_ref_str_len = len(account_reference) - 1
+    truncated_account_reference = "...{}".format(
+        account_reference[account_ref_str_len / 2: account_ref_str_len]
+    )
+
+    access_token = request.headers['Authorization']
+    order_meta_data = {
+        "amount": str(int(round(order.local_overall_cost))),
+        "user_phone_number": user.phone_number,
+        "order_id": truncated_account_reference,
+>>>>>>> A lot of updates :)
     }
     logging.debug("PAYLOAD SENT TO DARAJA: {}".format(json.dumps(payload)))
 
