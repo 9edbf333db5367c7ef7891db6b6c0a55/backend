@@ -78,14 +78,8 @@ def new_order_from_extension():
         response, status_code = amazon_order_items.retrieve_shipping_info()
         # print response
 
-<<<<<<< HEAD
         if len(response) == 0 and status_code != 200:
             return Response(json.dumps({'error': response}), status=504, mimetype='application/json')
-=======
-        if status_code not in [200, 201]:
-            payload = json.dumps({'error': response})
-            return Response(payload, status=status_code, mimetype='application/json')
->>>>>>> A lot of updates :)
 
         items_with_shipping_info = response
         logging.info(items_with_shipping_info)

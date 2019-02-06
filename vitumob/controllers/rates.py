@@ -17,12 +17,7 @@ from ..models.rates import Rates, Currency
 requests_toolbelt.adapters.appengine.monkeypatch()
 exchangerates = Blueprint("exchangerates", __name__)
 
-<<<<<<< HEAD
-@exchangerates.route("/exchange/rates", methods=["GET"])
-def get_exchange_rates():
-    api_id = os.environ.get("OPENEXCHANGE_API_ID") #maps the object to the given path
-    exchangerates_endpoint = "https://openexchangerates.org/api/latest.json?app_id={}".format(api_id) #api from exchange rates url and format it to api id
-=======
+
 @exchangerates.route('/exchange/rates', methods=['GET', 'POST'])
 def get_exchange_rates():
     api_id = os.environ.get('OPENEXCHANGE_API_ID')
@@ -30,7 +25,6 @@ def get_exchange_rates():
 
     rates_key = ndb.Key(Rates, api_id)
     stored_rates = Rates.get_or_insert(rates_key.id())
->>>>>>> A lot of updates :)
 
     stored_rates = Rates(api_id=api_id)
     diff_hours = math.floor((datetime.now() - stored_rates.updated_at).seconds / 3600)
@@ -39,7 +33,7 @@ def get_exchange_rates():
     if diff_hours > 4 or len(list_of_rates) == 0: #finds the number of items of the dictionary value    
         response = requests.get(exchangerates_endpoint)
 
-        if response.status_code != 200:
+        if response.status_code != 200:resolve conflicts
             return Response(response.text, status=500, mimetype="applications/json")
 
         response = response.json()

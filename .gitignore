@@ -5,6 +5,9 @@
 venv
 docs
 lib
+start
+activate
+bin
 include
 TESTS-bf4a577b8390.json
 *.pyc

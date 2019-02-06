@@ -2,8 +2,6 @@ import os
 from flask import Flask, session
 from flask_cors import CORS, cross_origin
 from mongoengine import *
-from mongoengine.queryset import QuerySet
-
 
 from .controllers.user import user
 from .controllers.orders import orders
@@ -20,11 +18,7 @@ app = Flask(__name__)
 app.secret_key = os.urandom(18)
 CORS(app)
 
-<<<<<<< HEAD
 
 resources = [user, orders, cart, payments, mpesa, exchangerates, mpesa_push_api]
-=======
-resources = [user, orders, cart, exchangerates, paypal_payments, mpesa_ipn, mpesa_push_api, shipping_info]
->>>>>>> A lot of updates :)
 for resource in resources:
     app.register_blueprint(resource)
