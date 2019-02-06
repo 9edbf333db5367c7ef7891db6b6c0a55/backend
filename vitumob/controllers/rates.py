@@ -18,11 +18,10 @@ requests_toolbelt.adapters.appengine.monkeypatch()
 exchangerates = Blueprint('exchangerates', __name__)
 
 
-@exchangerates.route('/exchange/rates', methods=['GET'])
+@exchangerates.route('/exchange/rates', methods=['GET', 'POST'])
 def get_exchange_rates():
     api_id = os.environ.get('OPENEXCHANGE_API_ID')
-    exchangerates_endpoint = "https://openexchangerates.org/api/latest.json?app_id={}".format(
-        api_id)
+    exchangerates_endpoint = "https://openexchangerates.org/api/latest.json?app_id={}".format(api_id)
 
     rates_key = ndb.Key(Rates, api_id)
     stored_rates = Rates.get_or_insert(rates_key.id())

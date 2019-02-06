@@ -11,7 +11,7 @@ from ..utils.coupons import coupon_codes
 coupons = Blueprint('coupons', __name__)
 
 
-@coupons.route('/coupons', methods=['POST'])
+@coupons.route('/coupons/migrate', methods=['POST'])
 def dump_coupons():
     """Migrate all the coupons to the Datastore DB"""
     def build_coupon_map(coupon):
@@ -27,10 +27,11 @@ def dump_coupons():
         cpn['amount'] = float(coupon['gift_amount']) / 100 \
             if coupon['gift_amount'] is not None and len(coupon['gift_amount']) > 0 else None
         return cpn
-    cp_codes = map(build_coupon_map, coupon_codes)
 
-    cp_codes = [Coupon(**cpn) for cpn in cp_codes]
-    coupon_keys = ndb.put_multi(cp_codes)
+    cpn_codes = map(build_coupon_map, coupon_codes)
+
+    cpn_codes = [Coupon(**cpn) for cpn in cpn_codes]
+    coupon_keys = ndb.put_multi(cpn_codes)
     # print[cpn.urlsafe() for cpn in coupon_keys]
 
     payload = {}
