@@ -19,7 +19,7 @@ from google.appengine.ext import ndb
 # from ..models.order import Order
 from ..models.mpesa import MpesaDarajaAccessToken, MpesaPayment
 from ..utils import ndb_json
-from ..helpers.dictutil import DictUtil
+from ..utils.dictutil import DictUtil
 
 requests_toolbelt.adapters.appengine.monkeypatch()
 mpesa_push_api = Blueprint('mpesa_push_api', __name__)
@@ -70,7 +70,7 @@ def set_completed_and_validation_callbacks_endpoint():
         access_token = request.headers['Authorization']
         return set_completed_and_validation_callbacks(access_token)
 
-    payload = json.dumps({ "error": "Not authorized to make this request" })
+    payload = json.dumps({"error": "Not authorized to make this request"})
     return Response(payload, status=401, mimetype='application/json')
 
 
@@ -96,7 +96,7 @@ def payment_validation_webhook():
 
     # if you reject to validate the payment, send back the following response
     # { "ResultCode": 1, "ResultDesc": "Rejected" }
-    payload = json.dumps({ "ResultCode": 0, "ResultDesc": "Accepted" })
+    payload = json.dumps({"ResultCode": 0, "ResultDesc": "Accepted"})
     return Response(payload, status=200, mimetype='application/json')
 
 
@@ -293,13 +293,16 @@ def mpesa_stk_push_request_from_hostgator():
             new_mpesa_payment_key = ndb.Key(MpesaPayment, mpesa_payment['CheckoutRequestID'])
             new_mpesa_payment = MpesaPayment.get_or_insert(new_mpesa_payment_key.id())
 
-            amount = order['amount'] if type(order['amount']) is int else int(round(order['amount'])
-            new_mpesa_payment.populate(
-                order_id=order['order_id'],
-                phone_no=order['user_phone_number'],
-                amount=amount,
-                merchant_request_id=mpesa_payment['MerchantRequestID']
-            )
+            amount = order['amount'] if type(order['amount']) is int\
+                else int(round(order['amount']))
+
+            payment_details = {
+                "order_id": order['order_id'],
+                "phone_no": order['user_phone_number'],
+                "amount": amount,
+                "merchant_request_id": mpesa_payment['MerchantRequestID']
+            }
+            new_mpesa_payment.populate(**payment_details)
             new_mpesa_payment.put()
 
         payload = response.text if error_payload is None else error_payload

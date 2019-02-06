@@ -1,8 +1,10 @@
 {
     "folders": [
 		{
-			"path": "/Users/eugenemutai/Development/vitumob/v2/vm-application"
+			"path": "."
 		}
 	],
-    "settings": {}
+	"settings": {
+		"python.pythonPath": "venv/bin/python"
+	}
 }
