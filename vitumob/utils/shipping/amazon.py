@@ -17,7 +17,7 @@ requests_toolbelt.adapters.appengine.monkeypatch()
 
 class AmazonShippingInfo(object):
     MINIMUM_WEIGHT = 2.20462
-    SHIPPING_WEIGHT_CONSTANT = 7.5
+    SHIPPING_WEIGHT_CONSTANT = 7.50
     VOLUMETRIC_WEIGHT_CONSTANT = 6000
     NONE_PRIME_ITEM_CHARGE = 5.00
 
@@ -67,9 +67,8 @@ class AmazonShippingInfo(object):
         )
 
         soap_response = requests.get(rest_api_endpoint)
-        batch_items_shipping_info = cls.extract_shipping_information(soap_response.text)
-
         if soap_response.status_code == 200:
+            batch_items_shipping_info = cls.extract_shipping_information(soap_response.text)
             shipping_info = shipping_info[0] if isinstance(shipping_info, tuple) else shipping_info
             # logging.info("{} {}".format(shipping_info, batch_items_shipping_info))
             return (shipping_info + batch_items_shipping_info, soap_response.status_code,)
@@ -92,7 +91,7 @@ class AmazonShippingInfo(object):
     @classmethod
     def extract_item_shipping_info(cls, item):
         shipping_info = {}
-        shipping_info['is_prime_item'] = False
+        shipping_info['is_prime_item'] = True
 
         def switch_weight_to_kgs(units, value):
             weight_options = {
@@ -111,9 +110,7 @@ class AmazonShippingInfo(object):
                 shipping_info[value.name.lower()] = switch_weight_to_kgs(unit, val)
 
             # volumetric weight = w * h * l / 6000
-            volumetric_weight = shipping_info['height']
-            volumetric_weight *= shipping_info['width']
-            volumetric_weight *= shipping_info['length']
+            volumetric_weight = shipping_info['height'] * shipping_info['width'] * shipping_info['length']
             volumetric_weight /= cls.VOLUMETRIC_WEIGHT_CONSTANT
 
             # select the greater weight of the two
@@ -126,15 +123,15 @@ class AmazonShippingInfo(object):
             # get the total shipping cost of the weight
             shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
         else:
-            # default weight: 1kg == 2.20462 pounds
+            # minumum weight: 1kg == 2.20462 pounds
             shipping_info['shipping_cost'] = cls.MINIMUM_WEIGHT
             shipping_info['shipping_cost'] *= cls.SHIPPING_WEIGHT_CONSTANT
 
         # check if the item is a prime item
         is_prime_item = item.find('IsEligibleForPrime')
-        if is_prime_item and is_prime_item.text != '1':
+        if is_prime_item is None or (is_prime_item is not None and is_prime_item.text != '1'):
             shipping_info['shipping_cost'] += cls.NONE_PRIME_ITEM_CHARGE
-            shipping_info['is_prime_item'] = True
+            shipping_info['is_prime_item'] = False
 
         shipping_info['asin'] = item.ASIN.text.encode('utf-8')
         shipping_info['title'] = item.ItemAttributes.Title.text.encode('utf-8')
