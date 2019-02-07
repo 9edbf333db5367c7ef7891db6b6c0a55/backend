@@ -3,8 +3,6 @@
 import os
 from flask import Flask, Response, request
 from google.appengine.ext import ndb
-from mongoengine import *
-
 
 import requests
 import requests_toolbelt.adapters.appengine

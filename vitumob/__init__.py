@@ -1,7 +1,6 @@
 import os
 from flask import Flask, session
 from flask_cors import CORS, cross_origin
-from mongoengine import *
 
 from .controllers.user import user
 from .controllers.orders import orders
