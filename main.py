@@ -3,7 +3,10 @@ import logging
 
 from flask import Response
 from vitumob import app
+from mongoengine import connect
+from mongoengine import *
 
+connect('vitumob1')
 
 @app.route('/')
 def index_health_check():

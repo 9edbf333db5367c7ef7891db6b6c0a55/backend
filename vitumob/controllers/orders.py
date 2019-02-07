@@ -76,8 +76,7 @@ def new_order_from_extension():
         # print response
 
         if len(response) == 0 and status_code != 200:
-            payload = json.dumps({'error': response})
-            return Response(payload, status=504, mimetype='application/json')
+            return Response(json.dumps({'error': response}), status=504, mimetype='application/json')
 
         items_with_shipping_info = response
         # print items_with_shipping_info
@@ -172,15 +171,16 @@ def new_order_from_extension():
     return Response(payload, status=200, mimetype='application/json')
 
 
-def sync_users_order_to_hostgator(endpoint, user_order):
+def sync_users_order_to_hostgator(endpoint, order_key):
     """Sync this order with user info to Hostgator admin servers"""
-    order_payload = user_order.to_dict()
-    order_payload['id'] = user_order.key.id()
-    order_payload['user_id'] = user_order.user.get().key.id()
-
-    payload = ndb_json.dumps({ 'order': order_payload })
+    order = order_key.get()
+    order_payload = order.to_dict()
+    order_payload['id'] = order_key.id()
+    order_payload['user_id'] = order.user.get().key.id()
+    payload = ndb_json.dumps({
+        'order': order_payload,
+    })
     logging.info("Payload: {}".format(payload))
-
     resource = '{endpoint}/order'.format(endpoint=endpoint)
     response = requests.post(resource, data=payload)
 
@@ -193,18 +193,24 @@ def sync_users_order_to_hostgator(endpoint, user_order):
 @orders.route('/order/<string:order_id>', methods=['PUT', 'PATCH'])
 def relate_user_to_their_order(order_id):
     """Adds user to the order they created for relational purposes"""
-    order_key = ndb.Key(Order, ndb.Key(urlsafe=order_id).id())
+    order_key = ndb.Key(urlsafe=order_id)
     order = order_key.get()
 
     if order is not None:
         logging.info("posted-user:{}".format(request.json['user']))
         posted_user = json.loads(request.json['user'])
-        user_key = ndb.Key(User, ndb.Key(urlsafe=posted_user['id']).id())
+        user_key = ndb.Key(User, posted_user['id'])
         user = user_key.get()
 
         if user is not None:
             order.user = user_key
             order.put()
+
+            # task = taskqueue.add(
+            #     url='/order/{order_id}'.format(order_id=order_key.id()),
+            #     method='GET',
+            #     target='worker',
+            # )
 
             deferred.defer(sync_users_order_to_hostgator, endpoint, order_key)
 

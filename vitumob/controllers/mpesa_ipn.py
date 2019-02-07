@@ -17,17 +17,17 @@ from ..utils import ndb_json
 
 
 requests_toolbelt.adapters.appengine.monkeypatch()
-mpesa_ipn = Blueprint('mpesa_ipn', __name__)
+mpesa = Blueprint('mpesa', __name__)
 
 
-@mpesa_ipn.route('/payments/mpesa/ipn', methods=['GET'])
+@mpesa.route('/payments/mpesa/ipn', methods=['GET'])
 def recieve_mpesa_notification():
     params = request.args.to_dict(flat=True)
     payment_details = {
         'code': params['mpesa_code'],
         'order_id': params['mpesa_acc'],
         'phone_no': params['mpesa_msisdn'],
-        'user_name': params['mpesa_sender'],
+        'sender': params['mpesa_sender'],
         'amount': float(params['mpesa_amt']),
         'message': params['text'],
         'timestamp': datetime.strptime(params['tstamp'], "%Y-%m-%d %H:%M:%S")

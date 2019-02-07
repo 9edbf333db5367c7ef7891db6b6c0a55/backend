@@ -1,13 +1,16 @@
-from google.appengine.ext import ndb
+from mongoengine import *
+from mongoengine import signals
+from datetime import datetime
+from mongoengine.queryset import QuerySet
 
 
-class Currency(ndb.Model):
-    code = ndb.StringProperty(required=True)
-    rate = ndb.FloatProperty(default=0.00, required=True)
+class Currency(EmbeddedDocument):
+    code = StringField(required=True)
+    rate = FloatField(default=0.00, required=True)
 
-
-class Rates(ndb.Model):
-    rates = ndb.StructuredProperty(Currency, repeated=True)
-    base = ndb.StringProperty(default='USD')
-    created_at = ndb.DateTimeProperty(auto_now_add=True)
-    updated_at = ndb.DateTimeProperty(auto_now=True)
+class Rates(Document):
+    api_id = StringField(primary_key=True)
+    rates = EmbeddedDocumentField(Currency, repeated=True)
+    base = StringField(default='USD')
+    created_at = DateTimeField(auto_now_add=True)
+    updated_at = DateTimeField(auto_now=True)

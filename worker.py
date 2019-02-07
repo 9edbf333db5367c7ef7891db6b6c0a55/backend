@@ -1,8 +1,10 @@
 """Tasks that should be executed in the background"""
 
-from os
+import os
 from flask import Flask, Response, request
-from google.appengine.ext import ndb
+# from google.appengine.ext import ndb
+from mongoengine import *
+
 
 import requests
 import requests_toolbelt.adapters.appengine
@@ -37,13 +39,13 @@ def update_user_info_in_old_backend(user_id):
 @worker.route('/order/<string:order_id>', methods=['POST'])
 def sync_users_order_to_old_backend(order_id):
     """This function will sync the user's requested order to the old backend"""
-    order_key = ndb.Key(Order, order_id)
+    order_key = Key(Order, order_id)
     order = order_key.get()
 
     order_payload = order.to_dict()
     order_payload['id'] = order_key.id()
     order_payload['user_id'] = order.user.get().key.id()
-    payload = ndb_json.dumps({
+    payload = json.dumps({
         'order': order_payload,
     })
     resource = '{endpoint}/order'.format(endpoint=endpoint)
@@ -55,7 +57,7 @@ def sync_users_order_to_old_backend(order_id):
 @worker.route('/order/<string:order_id>/paypal/payment', methods=['PUT'])
 def sync_payment_of_order_to_old_backend(order_id):
     """This function will sync the PayPal payment made by user to the old backend"""
-    order_key = ndb.Key(Order, order_id)
+    order_key = Key(Order, order_id)
     order = order_key.get()
 
     payment = order.paypal_payment.get()
