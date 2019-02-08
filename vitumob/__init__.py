@@ -5,8 +5,9 @@ from flask_cors import CORS, cross_origin
 from .controllers.user import user
 from .controllers.orders import orders
 from .controllers.cart import cart
-# from .controllers.payments import payments
-# from .controllers.mpesa import mpesa
+from .controllers.payments import payments
+from .controllers.mpesa import mpesa
+# from .controllers.coupons import coupons
 from .controllers.rates import exchangerates
 from .controllers.mpesa_push_api import mpesa_push_api
 from .controllers.surchage_api import shipping_info
