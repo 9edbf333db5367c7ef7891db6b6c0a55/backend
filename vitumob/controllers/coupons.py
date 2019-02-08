@@ -4,8 +4,8 @@ from datetime import datetime
 from flask import Blueprint, Response
 from google.appengine.ext import ndb
 
-from ..models.coupon import Coupon
-from ..utils.coupons import coupon_codes
+# from ..models.coupon import Coupon
+# from ..utils.coupons import coupon_codes
 
 
 coupons = Blueprint('coupons', __name__)

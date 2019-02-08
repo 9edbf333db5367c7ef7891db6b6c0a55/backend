@@ -2,6 +2,7 @@ import json
 import logging
 
 from flask import Response
+from mongoengine import *
 from vitumob import app
 
 connect('vitumob1')

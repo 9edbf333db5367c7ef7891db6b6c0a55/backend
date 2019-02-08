@@ -10,4 +10,4 @@ class Rates(Document):
     rates = ListField(EmbeddedDocumentField(Currency, repeated=True))
     base = StringField(default='USD')
     created_at = DateTimeField(auto_now_add=True)
-    updated_at = DateTimeField(auto_now=True)
+    updated_at = DateTimeField(default=datetime.now())
