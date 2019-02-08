@@ -8,7 +8,6 @@ from .controllers.cart import cart
 # from .controllers.payments import payments
 # from .controllers.mpesa import mpesa
 from .controllers.rates import exchangerates
-from .controllers.coupons import coupons
 from .controllers.mpesa_push_api import mpesa_push_api
 from .controllers.surchage_api import shipping_info
 
