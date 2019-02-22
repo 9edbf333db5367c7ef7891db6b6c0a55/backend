@@ -34,10 +34,12 @@ class ItemShippingInfo(object):
 
     @classmethod
     def get_item_shipping_info(cls, item):
+        aws_sellers_tokens = os.getenv('AWS_SELLERS_CENTRAL_TOKENS')
+        selected_token = aws_sellers_tokens[random.randint(0, len(aws_sellers_tokens) - 1)]
         query_params = {
             'searchKey': item['id'],
             'language': 'en_US',
-            'profitcalcToken': os.getenv('AWS_SELLERS_CENTRAL_TOKENS')[random.randint(0, 2)]
+            'profitcalcToken': selected_token
         }
         rest_api_endpoint = "{endpoint}?{query_params}".format(
             endpoint=os.environ.get("AWS_SELLERS_CENTRAL_ENDPOINT"),
