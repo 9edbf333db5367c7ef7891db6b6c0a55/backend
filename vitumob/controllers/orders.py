@@ -83,7 +83,7 @@ def new_order_from_extension():
             return Response(payload, status=status_code, mimetype='application/json')
 
         items_with_shipping_info = response
-        logging.info(items_with_shipping_info)
+        # logging.info(items_with_shipping_info)
 
         for index, item in enumerate(new_order['items']):
             shipping_info = [shpn_info for shpn_info in items_with_shipping_info
