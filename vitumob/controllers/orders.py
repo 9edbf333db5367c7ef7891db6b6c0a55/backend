@@ -65,12 +65,12 @@ def new_order_from_extension():
     """Receives a new order and store it"""
     new_order = json.loads(request.json['order'])
 
-    if os.environ.get("ENV") == "development":
+    if os.environ.get("ENV") is not "development":
         rates_key = ndb.Key(Rates, os.environ.get('OPENEXCHANGE_API_ID'))
         rates = Rates.get_by_id(rates_key.id())
         usd_to_kes = [rate for rate in rates.rates if rate.code == 'KES'][0]
     else:
-        usd_to_kes = Currency(code="KES", rate=105.00)
+        usd_to_kes = Currency(code="KES", rate=102.00)
 
     # if order is from amazon, get the shipping information of each item
     if 'amazon' in new_order['merchant']:

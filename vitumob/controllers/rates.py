@@ -4,7 +4,7 @@ import os
 import math
 from datetime import datetime
 
-from flask import Blueprint, Response
+from flask import Blueprint, Response, request
 from google.appengine.ext import ndb
 
 import requests
@@ -27,14 +27,14 @@ def get_exchange_rates():
     stored_rates = Rates.get_or_insert(rates_key.id())
 
     diff_hours = math.floor((datetime.now() - stored_rates.updated_at).seconds / 3600)
-    if diff_hours > 4 or len(stored_rates.to_dict()['rates']) <= 0:
+    if diff_hours > 4 or len(stored_rates.to_dict()['rates']) <= 0 or request.args.get('force') is not None:
         response = requests.get(exchangerates_endpoint)
 
         if response.status_code != 200:
             return Response(response.text, status=500, mimetype='application/json')
 
         response = response.json()
-        rates = [Currency(code=currency, rate=rate)
+        rates = [Currency(code=currency, rate=round(rate*1.035, 2))
                  for currency, rate in response['rates'].items()
                  if currency in ['EUR', 'GBP', 'KES']]
 
