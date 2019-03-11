@@ -29,6 +29,7 @@ class Order(ndb.Expando):
     mpesa_payment = ndb.KeyProperty(kind=MpesaPayment)
     delivery_location = ndb.KeyProperty(kind=Location)
 
+    is_shipping_only = ndb.BooleanProperty(default=False)
     is_temporary = ndb.BooleanProperty(default=True)
     created_at = ndb.DateTimeProperty(auto_now_add=True)
     updated_at = ndb.DateTimeProperty(auto_now=True)

@@ -23,6 +23,8 @@ class Item(ndb.Expando):
     shipping_cost = ndb.FloatProperty(default=0.00)
     overall_cost = ndb.ComputedProperty(lambda self: self.total_cost + self.shipping_cost)
     shipping_info = ndb.StructuredProperty(ShippingInfo)
+    category = ndb.StringProperty()
+    recipient_phone_no = ndb.StringProperty()
     created_at = ndb.DateTimeProperty(auto_now_add=True)
     updated_at = ndb.DateTimeProperty(auto_now=True)
     # Others - size, color, asin, model_no

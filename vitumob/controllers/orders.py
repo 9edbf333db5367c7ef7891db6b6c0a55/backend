@@ -59,7 +59,6 @@ def store_items_and_create_order(new_order, usd_to_kes):
         'exchange_rate': usd_to_kes.rate,
     }
 
-
 @orders.route('/order', methods=['POST'])
 def new_order_from_extension():
     """Receives a new order and store it"""
@@ -167,10 +166,50 @@ def new_order_from_extension():
         return Response(payload, status=200, mimetype='application/json')
 
     # remove shipping_info from the item dictionary
-    response['items'] = map(lambda item: (item.pop('shipping_info', None) is True) or item, response['items'])
+    response['items'] = map(
+        lambda item: (item.pop('shipping_info', None) is True) or item,
+        response['items']
+    )
 
     payload = json.dumps(response)
     return Response(payload, status=200, mimetype='application/json')
+
+
+@orders.route('/order/shipping_only', methods=['POST'])
+def new_shipping_only_order():
+    new_order = request.json['order']
+
+    user = ndb.Key(User, new_order['user']).get()
+    if user is not None:
+        new_order['user'] = user.key
+
+    def update_item_information(item):
+        item['item_id'] = item['id']
+        item.pop('id', None)
+        return item
+    new_order['items'] = map(update_item_information, new_order['items'])
+    # print json.dumps(new_order['items'])
+
+    # store the items 1st, collecting their assigned reference keys from DB
+    items = [Item(**item) for item in new_order['items']]
+    item_keys = ndb.put_multi(items)
+
+    # reference the keys to the items in the order and store the order
+    new_order['items'] = item_keys
+
+    hashids = Hashids(salt='https://vitumob.com/orders', min_length=8)
+    new_order_id = hashids.encode('VM', str(calendar.timegm(time.gmtime())))
+    new_order['id'] = new_order_id
+    order = Order(**new_order)
+    order.is_shipping_only = True
+    order.put()
+
+    payload = {
+        'order_id': order.key.id(),
+        'order_hex': order.key.urlsafe(),
+        'items': order.items,
+    }
+    return Response(ndb_json.dumps(payload), status=200, mimetype='application/json')
 
 
 def sync_users_order_to_hostgator(endpoint, user_order):

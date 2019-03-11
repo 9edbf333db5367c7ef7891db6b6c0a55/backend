@@ -14,6 +14,7 @@ import requests
 import requests_toolbelt.adapters.appengine
 
 from ..models.user import User
+from ..models.order import Order
 from ..utils import ndb_json
 
 
@@ -27,10 +28,14 @@ endpoint = os.environ.get("HOSTGATOR_SYNC_ENDPOINT")
 def get_user(user_id):
     """Get the user with the specified `user_id`"""
     user = ndb.Key(User, user_id).get()
-    user_payload = user.to_dict()
-    user_payload['id'] = user.key.id()
-    payload = ndb_json.dumps(user_payload)
-    return Response(payload, status=200, mimetype='application/json')
+    if user is not None:
+        user_payload = user.to_dict()
+        user_payload['id'] = user.key.id()
+        payload = ndb_json.dumps(user_payload)
+        return Response(payload, status=200, mimetype='application/json')
+
+    payload = json.dumps({'message': 'error/user-not-found'})
+    return Response(payload, status=404, mimetype='application/json')
 
 
 # deferred function
@@ -74,6 +79,7 @@ def create_user():
 
     payload = json.dumps({
         'message': "error/user-exists:userid={id}".format(id=user.key.id()),
+        'user_id': user.key.id(),
     })
     return Response(payload, status=409, mimetype='application/json')
 
@@ -97,7 +103,29 @@ def update_user(user_id):
         payload = json.dumps({'timestamp': timestamp})
         return Response(payload, status=200, mimetype='application/json')
 
-    payload = json.dumps({
-        'message': 'error/user-not-found',
-    })
+    payload = json.dumps({'message': 'error/user-not-found'})
+    return Response(payload, status=404, mimetype='application/json')
+
+
+@user.route('/user/<string:user_id>/orders/shipping_only', methods=['GET', 'POST'])
+def get_user_shipping_only_orders(user_id):
+    user = ndb.Key(User, user_id).get()
+    if user is not None:
+        query = Order.query(ndb.AND(Order.user == user.key, Order.is_shipping_only == True))
+        query.order(Order.created_at)
+        user_orders = query.fetch(None)
+
+        def build_response_order_results(order):
+            return {
+                "id": order.key.integer_id(),
+                "hex": order.key.urlsafe(),
+                "items": order.items,
+                "created_at": order.created_at
+            }
+        user_orders = map(build_response_order_results, user_orders)
+
+        payload = ndb_json.dumps({"orders": user_orders})
+        return Response(payload, status=200, mimetype='application/json')
+
+    payload = json.dumps({'message': 'error/user-not-found'})
     return Response(payload, status=404, mimetype='application/json')

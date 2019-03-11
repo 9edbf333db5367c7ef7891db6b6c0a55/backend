@@ -21,5 +21,6 @@ class User(ndb.Expando):
     phone_number = ndb.StringProperty()
     delivery_location = ndb.KeyProperty(kind=Location)
     facebook_credentials = ndb.StructuredProperty(FacebookCredentials)
+    shipping_only_id = ndb.IntegerProperty()
     created_at = ndb.DateTimeProperty(auto_now_add=True)
     updated_at = ndb.DateTimeProperty(auto_now=True)
