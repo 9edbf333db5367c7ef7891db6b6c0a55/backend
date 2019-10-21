@@ -55,4 +55,4 @@ six==1.11.0
 testing-v1beta3-googledatastore==4.0.0b4
 uritemplate==0.6
 urllib3==1.24.1
-Werkzeug==0.14.1
+Werkzeug==0.15.3
