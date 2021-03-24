@@ -49,7 +49,7 @@ python-dateutil==2.7.5
 pytz==2018.7
 requests==2.20.1
 requests-toolbelt==0.8.0
-rsa==4.0
+rsa==4.1
 simplejson==3.16.0
 six==1.11.0
 testing-v1beta3-googledatastore==4.0.0b4
